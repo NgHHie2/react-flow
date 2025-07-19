@@ -1,9 +1,21 @@
 import { Box, Flex } from "@chakra-ui/react";
 import React from "react";
 import { Handle, NodeProps, Position } from "reactflow";
-import { Model } from "./SchemaVisualizer.types";
 
-export default function ModelNode({ data }: NodeProps<Model>) {
+// Updated interface to match API response
+interface Field {
+  name: string;
+  type: string;
+  hasConnections?: boolean;
+}
+
+interface ModelData {
+  name: string;
+  isChild?: boolean;
+  fields: Field[];
+}
+
+export default function ModelNode({ data }: NodeProps<ModelData>) {
   return (
     <Box borderRadius="8px" minWidth="250px">
       {data.isChild && (
@@ -16,7 +28,7 @@ export default function ModelNode({ data }: NodeProps<Model>) {
       </Box>
       {data.fields.map(({ type, name, hasConnections }, index) => (
         <Flex
-          key={name}
+          key={`${name}-${index}`}
           _even={{ bg: "#282828" }}
           _odd={{ bg: "#232323" }}
           justifyContent={"space-between"}
