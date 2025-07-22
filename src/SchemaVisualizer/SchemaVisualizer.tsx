@@ -1,223 +1,283 @@
-import React, { useState, useEffect, useCallback } from "react";
+// src/SchemaVisualizer/SchemaVisualizer.tsx
+import React, { useCallback, useRef, useEffect, useMemo } from "react";
 import ReactFlow, {
   Background,
   BackgroundVariant,
   Controls,
-  Edge,
-  Node,
   useNodesState,
   useEdgesState,
   addEdge,
   Connection,
   MiniMap,
+  Node,
+  Edge,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import {
-  Box,
-  Spinner,
-  Alert,
-  AlertIcon,
-  Button,
-  VStack,
-  HStack,
-} from "@chakra-ui/react";
+import { Box, useToast, Text } from "@chakra-ui/react";
+
+// Components
 import ModelNode from "./ModelNode";
+import { LoadingScreen } from "../components/LoadingScreen";
+import { ErrorScreen } from "../components/ErrorScreen";
+import { EmptyState } from "../components/EmptyState";
+import { ControlPanel } from "../components/ControlPanel";
+import { InstructionsPanel } from "../components/InstructionsPanel";
+
+// Hooks
+import { useSchemaData } from "../hooks/useSchemaData";
+import { useWebSocket } from "../hooks/useWebSocket";
+
+// Utils
 import {
-  schemaApiService,
-  SchemaVisualizerResponse,
-  ModelDto,
-  ConnectionDto,
-} from "../services/schemaApiService";
+  createNodePositionUpdate,
+  createFieldUpdate,
+} from "../utils/schemaUtils";
 
 const modelTypes = {
   model: ModelNode,
 };
 
-// Convert API data to ReactFlow format
-const convertToReactFlowData = (data: SchemaVisualizerResponse) => {
-  const nodes: Node[] = data.models.map((model: ModelDto) => ({
-    id: model.name,
-    position: { x: model.positionX, y: model.positionY },
-    data: {
-      name: model.name,
-      isChild: model.isChild,
-      fields: model.fields.map((field) => ({
-        name: field.name,
-        type: field.type,
-        hasConnections: field.hasConnections,
-      })),
-    },
-    type: "model",
-  }));
-
-  const edges: Edge[] = data.connections.map((connection: ConnectionDto) => {
-    const sourceId = `${connection.source}-${connection.name}`;
-    return {
-      id: sourceId,
-      source: connection.source,
-      target: connection.target,
-      sourceHandle: sourceId,
-      targetHandle: connection.target,
-      animated: connection.isAnimated,
-      style: {
-        stroke: connection.edgeColor || "#b1b1b7",
-      },
-    };
-  });
-
-  return { nodes, edges };
-};
-
 export const SchemaVisualizer = () => {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    nodes,
+    edges,
+    loading,
+    error,
+    fetchSchemaData,
+    initializeData,
+    updateNodePosition,
+    updateField,
+  } = useSchemaData();
 
-  const onConnect = useCallback(
-    (params: Edge | Connection) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges]
+  const [reactFlowNodes, setReactFlowNodes, onNodesChange] = useNodesState([]);
+  const [reactFlowEdges, setReactFlowEdges, onEdgesChange] = useEdgesState([]);
+
+  const toast = useToast();
+  const dragTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Stable field update handler
+  const handleFieldUpdate = useCallback(
+    (fieldId: number, fieldName: string, fieldType: string) => {
+      console.log("Field update requested:", { fieldId, fieldName, fieldType });
+      const fieldUpdate = createFieldUpdate(
+        reactFlowNodes,
+        fieldId,
+        fieldName,
+        fieldType
+      );
+      if (fieldUpdate) {
+        console.log("Sending field update:", fieldUpdate);
+        sendFieldUpdate(fieldUpdate);
+      }
+    },
+    [reactFlowNodes]
   );
 
-  const fetchSchemaData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await schemaApiService.getSchemaData();
-      const reactFlowData = convertToReactFlowData(data);
-      setNodes(reactFlowData.nodes);
-      setEdges(reactFlowData.edges);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "An unknown error occurred"
-      );
-      console.error("Error fetching schema data:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // WebSocket handlers
+  const handleNodePositionUpdate = useCallback(
+    (data: any) => {
+      console.log("Received node position update:", data);
+      updateNodePosition(data.modelName, data.positionX, data.positionY);
+      // toast({
+      //   title: "Position Updated",
+      //   description: `${data.modelName} moved by another user`,
+      //   status: "info",
+      //   duration: 2000,
+      //   isClosable: true,
+      // });
+    },
+    [updateNodePosition, toast]
+  );
 
-  const handleInitializeData = async () => {
-    try {
-      setLoading(true);
-      await schemaApiService.initializeSampleData();
-      // Reload data after initialization
-      await fetchSchemaData();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to initialize data"
-      );
-    }
-  };
+  const handleFieldUpdateFromWS = useCallback(
+    (data: any) => {
+      console.log("Received field update:", data);
+      updateField(data.modelName, data.fieldId, data.fieldName, data.fieldType);
+    },
+    [updateField, toast]
+  );
 
-  // Handle node position changes (optional: save to backend)
-  const onNodeDragStop = useCallback((event: React.MouseEvent, node: Node) => {
-    console.log("Node dragged:", node.id, "to position:", node.position);
-    // TODO: Implement API call to save position to backend
-    // updateNodePosition(node.id, node.position.x, node.position.y);
-  }, []);
+  const { isConnected, sendNodePositionUpdate, sendFieldUpdate } = useWebSocket(
+    {
+      onNodePositionUpdate: handleNodePositionUpdate,
+      onFieldUpdate: handleFieldUpdateFromWS,
+    }
+  );
+
+  // Handle node drag
+  const onNodeDragStop = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      console.log("Node dragged:", node.id, "to position:", node.position);
+
+      if (dragTimeoutRef.current) {
+        clearTimeout(dragTimeoutRef.current);
+      }
+
+      dragTimeoutRef.current = setTimeout(() => {
+        const update = createNodePositionUpdate(node);
+        console.log("Sending position update:", update);
+        sendNodePositionUpdate(update);
+      }, 300);
+    },
+    [sendNodePositionUpdate]
+  );
+
+  const onConnect = useCallback(
+    (params: Edge | Connection) =>
+      setReactFlowEdges((eds) => addEdge(params, eds)),
+    [setReactFlowEdges]
+  );
+
+  // Stable callback refs
+  const stableHandlers = useMemo(
+    () => ({
+      onRefresh: () => {
+        console.log("Refreshing data...");
+        fetchSchemaData(handleFieldUpdate);
+      },
+      onReset: () => {
+        console.log("Resetting data...");
+        initializeData(handleFieldUpdate);
+      },
+      onRetry: () => {
+        console.log("Retrying data fetch...");
+        fetchSchemaData(handleFieldUpdate);
+      },
+      onInitialize: () => {
+        console.log("Initializing data...");
+        initializeData(handleFieldUpdate);
+      },
+      onInitializeFromEmpty: () => {
+        console.log("Initializing from empty state...");
+        initializeData(handleFieldUpdate);
+      },
+    }),
+    [fetchSchemaData, initializeData, handleFieldUpdate]
+  );
+
+  // Load initial data only once
+  useEffect(() => {
+    console.log("Loading initial data...");
+    fetchSchemaData(handleFieldUpdate);
+  }, []); // Empty dependency array - only run once
+
+  // Sync nodes and edges when data changes
+  useEffect(() => {
+    console.log("Syncing nodes with callbacks, nodes count:", nodes.length);
+    if (nodes.length > 0) {
+      const nodesWithCallbacks = nodes.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          onFieldUpdate: handleFieldUpdate,
+        },
+      }));
+      setReactFlowNodes(nodesWithCallbacks);
+    } else {
+      setReactFlowNodes([]);
+    }
+  }, [nodes]); // Only depend on nodes, handleFieldUpdate is stable
 
   useEffect(() => {
-    fetchSchemaData();
+    console.log("Syncing edges, edges count:", edges.length);
+    setReactFlowEdges(edges);
+  }, [edges, setReactFlowEdges]);
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (dragTimeoutRef.current) {
+        clearTimeout(dragTimeoutRef.current);
+      }
+    };
   }, []);
 
+  // Debug logs
+  useEffect(() => {
+    console.log("SchemaVisualizer State:", {
+      loading,
+      error,
+      nodesCount: nodes.length,
+      edgesCount: edges.length,
+      reactFlowNodesCount: reactFlowNodes.length,
+      reactFlowEdgesCount: reactFlowEdges.length,
+    });
+  }, [
+    loading,
+    error,
+    nodes.length,
+    edges.length,
+    reactFlowNodes.length,
+    reactFlowEdges.length,
+  ]);
+
+  // Debug render info
+  console.log("Rendering SchemaVisualizer:", {
+    loading,
+    error: !!error,
+    nodesLength: reactFlowNodes.length,
+    edgesLength: reactFlowEdges.length,
+    isConnected,
+  });
+
+  // Render loading state
   if (loading) {
-    return (
-      <Box
-        height="100vh"
-        width="100vw"
-        bg="#1C1c1c"
-        display="flex"
-        alignItems="center"
-        justifyContent="center"
-      >
-        <VStack spacing={4}>
-          <Spinner size="xl" color="white" thickness="4px" />
-          <Box color="white" fontSize="lg">
-            Loading schema data...
-          </Box>
-        </VStack>
-      </Box>
-    );
+    console.log("Rendering loading screen");
+    return <LoadingScreen message="Loading schema data..." />;
   }
 
+  // Render error state
   if (error) {
+    console.log("Rendering error screen:", error);
     return (
-      <Box
-        height="100vh"
-        width="100vw"
-        bg="#1C1c1c"
-        display="flex"
-        alignItems="center"
-        justifyContent="center"
-      >
-        <VStack spacing={4} maxWidth="500px">
-          <Alert status="error">
-            <AlertIcon />
-            Error loading schema data: {error}
-          </Alert>
-          <HStack spacing={4}>
-            <Button colorScheme="blue" onClick={fetchSchemaData}>
-              Retry
-            </Button>
-            <Button colorScheme="green" onClick={handleInitializeData}>
-              Initialize Sample Data
-            </Button>
-          </HStack>
-        </VStack>
-      </Box>
+      <ErrorScreen
+        error={error}
+        onRetry={stableHandlers.onRetry}
+        onInitialize={stableHandlers.onInitialize}
+      />
     );
   }
 
-  if (nodes.length === 0) {
-    return (
-      <Box
-        height="100vh"
-        width="100vw"
-        bg="#1C1c1c"
-        display="flex"
-        alignItems="center"
-        justifyContent="center"
-      >
-        <VStack spacing={4}>
-          <Box color="white" fontSize="lg" textAlign="center">
-            No schema data found. Would you like to initialize sample data?
-          </Box>
-          <Button colorScheme="green" onClick={handleInitializeData}>
-            Initialize Sample Data
-          </Button>
-        </VStack>
-      </Box>
-    );
+  // Render empty state
+  if (reactFlowNodes.length === 0) {
+    console.log("Rendering empty state");
+    return <EmptyState onInitialize={stableHandlers.onInitializeFromEmpty} />;
   }
 
+  // Render main schema visualizer
+  console.log("Rendering main ReactFlow with", reactFlowNodes.length, "nodes");
   return (
     <Box height="100vh" width="100vw" bg="#1C1c1c" position="relative">
-      {/* Control buttons */}
-      <Box position="absolute" top={4} right={4} zIndex={1000}>
-        <HStack spacing={2}>
-          <Button
-            size="sm"
-            colorScheme="blue"
-            onClick={fetchSchemaData}
-            isLoading={loading}
-          >
-            Refresh
-          </Button>
-          <Button
-            size="sm"
-            colorScheme="green"
-            onClick={handleInitializeData}
-            isLoading={loading}
-          >
-            Reset Data
-          </Button>
-        </HStack>
+      <ControlPanel
+        isConnected={isConnected}
+        loading={loading}
+        onRefresh={stableHandlers.onRefresh}
+        onReset={stableHandlers.onReset}
+      />
+
+      {/* <InstructionsPanel /> */}
+
+      {/* Debug info */}
+      <Box
+        position="absolute"
+        top={4}
+        left={4}
+        zIndex={1000}
+        bg="rgba(0,0,0,0.8)"
+        color="white"
+        p={2}
+        borderRadius="md"
+        fontSize="xs"
+      >
+        <Text>
+          Debug: Nodes: {reactFlowNodes.length}, Edges: {reactFlowEdges.length},
+          WS: {isConnected ? "Connected" : "Disconnected"}
+        </Text>
       </Box>
 
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        nodes={reactFlowNodes}
+        edges={reactFlowEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
