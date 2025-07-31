@@ -9,6 +9,8 @@ interface Field {
   name: string;
   type: string;
   hasConnections?: boolean;
+  isPrimaryKey?: boolean;
+  isForeignKey?: boolean;
 }
 
 interface ModelData {
@@ -23,12 +25,11 @@ interface ModelData {
   ) => void;
 }
 
-const HEADER_HEIGHT = 40; // Height của header
-const ROW_HEIGHT = 32; // Height của mỗi row field
+const HEADER_HEIGHT = 40;
+const ROW_HEIGHT = 32;
 
 export default function ModelNode({ data, id }: NodeProps<ModelData>) {
   const { getNodes } = useReactFlow();
-
   const handleFieldNameUpdate = (fieldIndex: number, newName: string) => {
     const field = data.fields[fieldIndex];
     if (field.id && data.onFieldUpdate) {
@@ -43,129 +44,161 @@ export default function ModelNode({ data, id }: NodeProps<ModelData>) {
     }
   };
 
-  // Function để tìm target node và quyết định handle position
-  const getHandlePosition = (fieldType: string, currentNodeId: string) => {
+  const getConnectionHandlePosition = (
+    field: Field,
+    currentNodeId: string
+  ): Position => {
+    if (!field.hasConnections) return Position.Right;
+
     try {
       const nodes = getNodes();
       const currentNode = nodes.find((node) => node.id === currentNodeId);
-
       if (!currentNode) return Position.Right;
 
-      // Tìm target node dựa trên field type
-      // Giả sử field type chứa tên model (ví dụ: "User", "Comment[]")
-      const cleanFieldType = fieldType.replace(/\[\]$/, ""); // Bỏ [] nếu có
+      // Tách tên model từ field (user_id → User, post_id → Post)
+      const guessedModel = field.name.replace(/_id$/, ""); // user_id → user
+      const guessedModelCapitalized =
+        guessedModel.charAt(0).toUpperCase() + guessedModel.slice(1); // user → User
+
+      // Tìm node đích theo tên đoán được
       const targetNode = nodes.find(
-        (node) =>
-          node.id === cleanFieldType || node.data?.name === cleanFieldType
+        (node) => node.data?.name === guessedModelCapitalized
       );
 
       if (!targetNode) return Position.Right;
 
-      // Tính toán vị trí giữa của current node
       const currentCenterX =
-        currentNode.position.x + (currentNode.width || 250) / 2;
-
-      // Tính toán vị trí giữa của target node
+        currentNode.position.x + (currentNode.width ?? 250) / 2;
       const targetCenterX =
-        targetNode.position.x + (targetNode.width || 250) / 2;
+        targetNode.position.x + (targetNode.width ?? 250) / 2;
 
-      // Nếu target ở bên phải current node thì handle ở Right, ngược lại thì Left
       return targetCenterX > currentCenterX ? Position.Right : Position.Left;
     } catch (error) {
       console.error("Error calculating handle position:", error);
-      return Position.Right; // Default fallback
+      return Position.Right;
+    }
+  };
+
+  const getTargetHandlePosition = (): {
+    position: Position;
+    offsetStyle: any;
+  } => {
+    try {
+      const nodes = getNodes();
+      const currentNode = nodes.find((n) => n.id === id);
+      if (!currentNode)
+        return { position: Position.Left, offsetStyle: { left: "-4px" } };
+
+      // Tìm node cha đang kết nối tới current node (giả định theo tên hoặc logic tùy hệ thống)
+      const parentNode = nodes.find((node) =>
+        node.data?.fields?.some(
+          (f: { name: string }) => f.name === `${data.name.toLowerCase()}_id` // ví dụ như "comment_id"
+        )
+      );
+
+      if (!parentNode)
+        return { position: Position.Left, offsetStyle: { left: "-4px" } };
+
+      const currentX = currentNode.position.x + (currentNode.width ?? 250) / 2;
+      const parentX = parentNode.position.x + (parentNode.width ?? 250) / 2;
+
+      if (parentX < currentX) {
+        return { position: Position.Left, offsetStyle: { left: "-4px" } };
+      } else {
+        return { position: Position.Right, offsetStyle: { right: "-4px" } };
+      }
+    } catch (e) {
+      return { position: Position.Left, offsetStyle: { left: "-4px" } };
     }
   };
 
   return (
-    <Box borderRadius="8px" minWidth="250px">
-      {data.isChild && (
-        <Handle
-          id={data.name}
-          position={Position.Top}
-          type="target"
-          style={{
-            background: "transparent",
-            width: "8px",
-            height: "8px",
-            border: "2px solid white",
-          }}
-        />
-      )}
-
+    <Box borderRadius="8px" minWidth="280px" maxWidth="350px">
       {/* Model Header */}
       <Box
-        p={2}
+        p={3}
         textAlign="center"
         borderRadius="8px 8px 0 0"
-        bg="#3d5787"
+        bg={"#3d5787"}
         height={`${HEADER_HEIGHT}px`}
         display="flex"
         alignItems="center"
         justifyContent="center"
+        borderBottom="2px solid #4A5568"
       >
-        <Box fontWeight={"bold"} color="white">
-          <pre>{data.name}</pre>
+        <Box fontWeight="bold" color="white" fontSize="14px">
+          {data.name}
         </Box>
       </Box>
 
       {/* Model Fields */}
       {data.fields.map((field, index) => {
-        // Tính position chính xác cho Handle
-        const handleTop = HEADER_HEIGHT + index * ROW_HEIGHT + ROW_HEIGHT / 2;
-
-        // Quyết định handle position dựa trên target location
-        const handlePosition = field.hasConnections
-          ? getHandlePosition(field.type, id || data.name)
-          : Position.Right;
+        const isPK = field.isPrimaryKey;
+        if (isPK) console.log(field);
+        const isFK = field.hasConnections || field.name.endsWith("_id");
 
         return (
           <Box key={`${field.name}-${index}`} position="relative">
             <Flex
-              _even={{ bg: "#282828" }}
-              _odd={{ bg: "#232323" }}
-              justifyContent={"space-between"}
+              bg={"#2A2A2A"}
+              justifyContent="space-between"
               alignItems="center"
               p={2}
               color="white"
               height={`${ROW_HEIGHT}px`}
+              borderBottom="1px solid #4A5568"
+              _hover={{ bg: "#4A5568" }}
             >
-              {/* Field Name */}
-              <Box flex="1" pr={2}>
+              {/* Field Icon & Name */}
+              <Flex flex="1" alignItems="center" pr={2}>
+                {/* Primary Key Icon */}
+                <Box width="12px" mr={1}>
+                  {isPK ? (
+                    <Box color="#FFD700" fontSize="8px" title="Primary Key">
+                      🔑
+                    </Box>
+                  ) : isFK ? (
+                    <Box color="#87CEEB" fontSize="8px" title="Foreign Key">
+                      🔗
+                    </Box>
+                  ) : null}
+                </Box>
+
                 <EditableField
                   value={field.name}
                   onSave={(newName) => handleFieldNameUpdate(index, newName)}
                   placeholder="field_name"
-                  color="white"
-                  minWidth="60px"
+                  color={isPK ? "#FFD700" : isFK ? "#87CEEB" : "white"}
+                  minWidth="80px"
                 />
-              </Box>
+              </Flex>
 
               {/* Field Type */}
-              <Box flex="1">
+              <Box flex="1" textAlign="right">
                 <EditableField
                   value={field.type}
                   onSave={(newType) => handleFieldTypeUpdate(index, newType)}
                   placeholder="type"
-                  color="white"
-                  minWidth="60px"
+                  color="#B8B8B8"
+                  minWidth="80px"
                 />
               </Box>
             </Flex>
 
-            {/* Connection Handle - positioned dynamically */}
+            {/* Connection Handle for Foreign Keys */}
             {field.hasConnections && (
               <Handle
-                position={handlePosition}
+                position={getConnectionHandlePosition(field, id)}
                 id={`${data.name}-${field.name}`}
                 type="source"
                 style={{
                   position: "absolute",
-                  [handlePosition === Position.Right ? "right" : "left"]:
-                    "-4px",
+                  [getConnectionHandlePosition(field, id) === Position.Right
+                    ? "right"
+                    : "left"]: "-4px",
                   top: "50%",
                   transform: "translateY(-50%)",
-                  backgroundColor: "transparent",
+                  backgroundColor: "white",
                   width: "8px",
                   height: "8px",
                   border: "2px solid white",
@@ -173,9 +206,35 @@ export default function ModelNode({ data, id }: NodeProps<ModelData>) {
                 }}
               />
             )}
+            {field.isPrimaryKey &&
+              data.isChild &&
+              (() => {
+                const { position, offsetStyle } = getTargetHandlePosition();
+                return (
+                  <Handle
+                    id={data.name}
+                    position={position}
+                    type="target"
+                    style={{
+                      background: "white",
+                      width: "8px",
+                      height: "8px",
+                      border: "2px solid white",
+                      borderRadius: "50%",
+                      position: "absolute",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      ...offsetStyle,
+                    }}
+                  />
+                );
+              })()}
           </Box>
         );
       })}
+
+      {/* Bottom border */}
+      <Box height="2px" bg="#4A5568" borderRadius="0 0 8px 8px" />
     </Box>
   );
 }

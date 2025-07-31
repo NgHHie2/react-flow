@@ -26,6 +26,7 @@ const convertToReactFlowData = (
         name: field.name,
         type: field.type,
         hasConnections: field.hasConnections,
+        isPrimaryKey: field.isPrimaryKey,
       })),
       onFieldUpdate,
     },
@@ -42,7 +43,7 @@ const convertToReactFlowData = (
       targetHandle: connection.target,
       animated: connection.isAnimated,
       style: {
-        stroke: connection.edgeColor || "#b1b1b7",
+        stroke: "#b1b1b7",
       },
     };
   });
