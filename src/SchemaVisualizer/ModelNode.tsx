@@ -29,7 +29,8 @@ const HEADER_HEIGHT = 40;
 const ROW_HEIGHT = 32;
 
 export default function ModelNode({ data, id }: NodeProps<ModelData>) {
-  const { getNodes } = useReactFlow();
+  const { getNodes, getEdges } = useReactFlow();
+
   const handleFieldNameUpdate = (fieldIndex: number, newName: string) => {
     const field = data.fields[fieldIndex];
     if (field.id && data.onFieldUpdate) {
@@ -56,9 +57,9 @@ export default function ModelNode({ data, id }: NodeProps<ModelData>) {
       if (!currentNode) return Position.Right;
 
       // Tách tên model từ field (user_id → User, post_id → Post)
-      const guessedModel = field.name.replace(/_id$/, ""); // user_id → user
+      const guessedModel = field.name.replace(/_id$/, "");
       const guessedModelCapitalized =
-        guessedModel.charAt(0).toUpperCase() + guessedModel.slice(1); // user → User
+        guessedModel.charAt(0).toUpperCase() + guessedModel.slice(1);
 
       // Tìm node đích theo tên đoán được
       const targetNode = nodes.find(
@@ -67,10 +68,27 @@ export default function ModelNode({ data, id }: NodeProps<ModelData>) {
 
       if (!targetNode) return Position.Right;
 
-      const currentCenterX =
-        currentNode.position.x + (currentNode.width ?? 250) / 2;
-      const targetCenterX =
-        targetNode.position.x + (targetNode.width ?? 250) / 2;
+      const nodeWidth = 280;
+
+      // So sánh cạnh gần nhất của 2 nodes
+      const currentRightEdge = currentNode.position.x + nodeWidth;
+      const currentLeftEdge = currentNode.position.x;
+      const targetRightEdge = targetNode.position.x + nodeWidth;
+      const targetLeftEdge = targetNode.position.x;
+
+      // Nếu target hoàn toàn ở bên phải current (không overlap)
+      if (targetLeftEdge >= currentRightEdge) {
+        return Position.Right;
+      }
+
+      // Nếu target hoàn toàn ở bên trái current (không overlap)
+      if (targetRightEdge <= currentLeftEdge) {
+        return Position.Left;
+      }
+
+      // Nếu có overlap hoặc quá gần nhau - dùng center để quyết định
+      const currentCenterX = currentNode.position.x + nodeWidth / 2;
+      const targetCenterX = targetNode.position.x + nodeWidth / 2;
 
       return targetCenterX > currentCenterX ? Position.Right : Position.Left;
     } catch (error) {
@@ -79,37 +97,109 @@ export default function ModelNode({ data, id }: NodeProps<ModelData>) {
     }
   };
 
-  const getTargetHandlePosition = (): {
-    position: Position;
-    offsetStyle: any;
-  } => {
+  // Phân tích incoming connections để quyết định vị trí target handle
+  const analyzeTargetHandlePosition = () => {
     try {
       const nodes = getNodes();
+      const edges = getEdges();
       const currentNode = nodes.find((n) => n.id === id);
-      if (!currentNode)
-        return { position: Position.Left, offsetStyle: { left: "-4px" } };
 
-      // Tìm node cha đang kết nối tới current node (giả định theo tên hoặc logic tùy hệ thống)
-      const parentNode = nodes.find((node) =>
-        node.data?.fields?.some(
-          (f: { name: string }) => f.name === `${data.name.toLowerCase()}_id` // ví dụ như "comment_id"
-        )
-      );
+      if (!currentNode) return { position: Position.Left, connectionCount: 0 };
 
-      if (!parentNode)
-        return { position: Position.Left, offsetStyle: { left: "-4px" } };
+      // Tìm tất cả edges có target là node hiện tại
+      const incomingEdges = edges.filter((edge) => edge.target === id);
+      const connectionCount = incomingEdges.length;
 
-      const currentX = currentNode.position.x + (currentNode.width ?? 250) / 2;
-      const parentX = parentNode.position.x + (parentNode.width ?? 250) / 2;
-
-      if (parentX < currentX) {
-        return { position: Position.Left, offsetStyle: { left: "-4px" } };
-      } else {
-        return { position: Position.Right, offsetStyle: { right: "-4px" } };
+      if (connectionCount === 0) {
+        return { position: Position.Left, connectionCount: 0 };
       }
-    } catch (e) {
-      return { position: Position.Left, offsetStyle: { left: "-4px" } };
+
+      const nodeWidth = 280;
+      const currentLeftEdge = currentNode.position.x;
+      const currentRightEdge = currentNode.position.x + nodeWidth;
+
+      let leftSideSources = 0;
+      let rightSideSources = 0;
+
+      // Phân loại sources theo vị trí tương đối với target
+      incomingEdges.forEach((edge) => {
+        const sourceNode = nodes.find((n) => n.id === edge.source);
+        if (sourceNode) {
+          const sourceRightEdge = sourceNode.position.x + nodeWidth;
+          const sourceLeftEdge = sourceNode.position.x;
+
+          // Source hoàn toàn ở bên trái target
+          if (sourceRightEdge <= currentLeftEdge) {
+            leftSideSources++;
+          }
+          // Source hoàn toàn ở bên phải target
+          else if (sourceLeftEdge >= currentRightEdge) {
+            rightSideSources++;
+          }
+          // Source overlap hoặc gần - dùng center để quyết định
+          else {
+            const sourceCenterX = sourceNode.position.x + nodeWidth / 2;
+            const currentCenterX = currentNode.position.x + nodeWidth / 2;
+
+            if (sourceCenterX < currentCenterX) {
+              leftSideSources++;
+            } else {
+              rightSideSources++;
+            }
+          }
+        }
+      });
+
+      // Quyết định vị trí target handle dựa trên phân bố sources
+      let position = Position.Left; // Default
+
+      if (rightSideSources > leftSideSources) {
+        position = Position.Right;
+      } else if (leftSideSources > rightSideSources) {
+        position = Position.Left;
+      } else {
+        // Nếu bằng nhau, ưu tiên bên trái
+        position = Position.Left;
+      }
+
+      return { position, connectionCount };
+    } catch (error) {
+      console.error("Error analyzing target handle position:", error);
+      return { position: Position.Left, connectionCount: 0 };
     }
+  };
+
+  // Tạo target handle thông minh
+  const renderTargetHandle = () => {
+    if (!data.isChild) return null;
+
+    const primaryKeyField = data.fields.find((f) => f.isPrimaryKey);
+    if (!primaryKeyField) return null;
+
+    const { position, connectionCount } = analyzeTargetHandlePosition();
+    const isRight = position === Position.Right;
+
+    // Visual indicator cho số lượng connections
+    const handleColor = "white"; // Xanh nếu có nhiều connections
+
+    return (
+      <Handle
+        id={data.name}
+        position={position}
+        type="target"
+        style={{
+          background: handleColor,
+          width: "8px",
+          height: "8px",
+          border: `2px solid ${handleColor}`,
+          borderRadius: "50%",
+          position: "absolute",
+          top: "50%",
+          [isRight ? "right" : "left"]: "-4px",
+          transform: "translateY(-50%)",
+        }}
+      />
+    );
   };
 
   return (
@@ -134,7 +224,6 @@ export default function ModelNode({ data, id }: NodeProps<ModelData>) {
       {/* Model Fields */}
       {data.fields.map((field, index) => {
         const isPK = field.isPrimaryKey;
-        if (isPK) console.log(field);
         const isFK = field.hasConnections || field.name.endsWith("_id");
 
         return (
@@ -206,29 +295,11 @@ export default function ModelNode({ data, id }: NodeProps<ModelData>) {
                 }}
               />
             )}
+
+            {/* Target Handle cho Primary Key - chỉ render một lần cho field đầu tiên là PK */}
             {field.isPrimaryKey &&
-              data.isChild &&
-              (() => {
-                const { position, offsetStyle } = getTargetHandlePosition();
-                return (
-                  <Handle
-                    id={data.name}
-                    position={position}
-                    type="target"
-                    style={{
-                      background: "white",
-                      width: "8px",
-                      height: "8px",
-                      border: "2px solid white",
-                      borderRadius: "50%",
-                      position: "absolute",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      ...offsetStyle,
-                    }}
-                  />
-                );
-              })()}
+              index === data.fields.findIndex((f) => f.isPrimaryKey) &&
+              renderTargetHandle()}
           </Box>
         );
       })}
