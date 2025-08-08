@@ -1,44 +1,11 @@
 // src/services/schemaApiService.ts
-export interface FieldDto {
-  id: number;
-  name: string;
-  type: string;
-  hasConnections: boolean;
-  fieldOrder: number;
-  isNullable: boolean;
-  isPrimaryKey: boolean;
-}
-
-export interface ModelDto {
-  id: number;
-  name: string;
-  positionX: number;
-  positionY: number;
-  isChild: boolean;
-  backgroundColor: string;
-  fields: FieldDto[];
-}
-
-export interface ConnectionDto {
-  id: number;
-  name: string;
-  connectionType: string;
-  isAnimated: boolean;
-  edgeColor: string;
-  source: string;
-  target: string;
-}
-
-export interface SchemaVisualizerResponse {
-  models: ModelDto[];
-  connections: ConnectionDto[];
-}
+import { SchemaData } from "../SchemaVisualizer/SchemaVisualizer.types";
 
 const API_BASE_URL = "http://localhost:8080/api/schema";
 
 export const schemaApiService = {
-  // Lấy toàn bộ dữ liệu schema
-  async getSchemaData(): Promise<SchemaVisualizerResponse> {
+  // Get complete schema data
+  async getSchemaData(): Promise<SchemaData> {
     try {
       const response = await fetch(API_BASE_URL);
       if (!response.ok) {
@@ -51,7 +18,7 @@ export const schemaApiService = {
     }
   },
 
-  // Khởi tạo sample data
+  // Initialize sample data
   async initializeSampleData(): Promise<string> {
     try {
       const response = await fetch(`${API_BASE_URL}/initialize`, {
@@ -63,6 +30,62 @@ export const schemaApiService = {
       return await response.text();
     } catch (error) {
       console.error("Error initializing sample data:", error);
+      throw error;
+    }
+  },
+
+  // Update model position
+  async updateModelPosition(
+    modelName: string,
+    positionX: number,
+    positionY: number
+  ): Promise<void> {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/models/${modelName}/position`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ positionX, positionY }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error("Error updating model position:", error);
+      throw error;
+    }
+  },
+
+  // Update attribute
+  async updateAttribute(
+    modelName: string,
+    attributeId: number,
+    attributeName: string,
+    dataType: string
+  ): Promise<void> {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/models/${modelName}/attributes/${attributeId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: attributeName,
+            dataType: dataType,
+          }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error("Error updating attribute:", error);
       throw error;
     }
   },

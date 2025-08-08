@@ -2,69 +2,29 @@
 import { useState, useCallback } from "react";
 import { useToast } from "@chakra-ui/react";
 import { Node, Edge } from "reactflow";
-import {
-  schemaApiService,
-  SchemaVisualizerResponse,
-  ModelDto,
-  ConnectionDto,
-} from "../services/schemaApiService";
-
-// Convert API data to ReactFlow format
-const convertToReactFlowData = (
-  data: SchemaVisualizerResponse,
-  onFieldUpdate: any
-) => {
-  const nodes: Node[] = data.models.map((model: ModelDto) => ({
-    id: model.name,
-    position: { x: model.positionX, y: model.positionY },
-    data: {
-      id: model.id,
-      name: model.name,
-      isChild: model.isChild,
-      fields: model.fields.map((field) => ({
-        id: field.id,
-        name: field.name,
-        type: field.type,
-        hasConnections: field.hasConnections,
-        isPrimaryKey: field.isPrimaryKey,
-      })),
-      onFieldUpdate,
-    },
-    type: "model",
-  }));
-
-  const edges: Edge[] = data.connections.map((connection: ConnectionDto) => {
-    const sourceId = `${connection.source}-${connection.name}`;
-    return {
-      id: sourceId,
-      source: connection.source,
-      target: connection.target,
-      sourceHandle: sourceId,
-      targetHandle: connection.target,
-      animated: connection.isAnimated,
-      style: {
-        stroke: "#b1b1b7",
-      },
-    };
-  });
-
-  return { nodes, edges };
-};
+import { schemaApiService } from "../services/schemaApiService";
+import { convertToReactFlowData } from "../utils/schemaUtils";
+import { SchemaData } from "../SchemaVisualizer/SchemaVisualizer.types";
 
 export const useSchemaData = () => {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [schemaInfo, setSchemaInfo] = useState<SchemaData | null>(null);
   const toast = useToast();
 
   const fetchSchemaData = useCallback(async (onFieldUpdateCallback?: any) => {
     try {
       setLoading(true);
       setError(null);
+
       const data = await schemaApiService.getSchemaData();
+      setSchemaInfo(data);
+
       const reactFlowData = convertToReactFlowData(data, onFieldUpdateCallback);
 
+      console.log("Converted ReactFlow data:", reactFlowData);
       setNodes(reactFlowData.nodes);
       setEdges(reactFlowData.edges);
     } catch (err) {
@@ -100,23 +60,33 @@ export const useSchemaData = () => {
   );
 
   const updateNodePosition = useCallback(
-    (nodeId: string, x: number, y: number) => {
+    async (nodeId: string, x: number, y: number) => {
+      // Update local state immediately for smooth UX
       setNodes((nds) =>
         nds.map((node) =>
           node.id === nodeId ? { ...node, position: { x, y } } : node
         )
       );
+
+      // Update backend
+      try {
+        await schemaApiService.updateModelPosition(nodeId, x, y);
+      } catch (error) {
+        console.error("Failed to update position on server:", error);
+        // Optionally revert local changes or show error
+      }
     },
     []
   );
 
   const updateField = useCallback(
-    (
+    async (
       modelName: string,
       fieldId: number,
       fieldName: string,
       fieldType: string
     ) => {
+      // Update local state immediately
       setNodes((nds) =>
         nds.map((node) =>
           node.id === modelName
@@ -124,16 +94,29 @@ export const useSchemaData = () => {
                 ...node,
                 data: {
                   ...node.data,
-                  fields: node.data.fields.map((field: any) =>
-                    field.id === fieldId
-                      ? { ...field, name: fieldName, type: fieldType }
-                      : field
+                  attributes: node.data.attributes.map((attr: any) =>
+                    attr.id === fieldId
+                      ? { ...attr, name: fieldName, dataType: fieldType }
+                      : attr
                   ),
                 },
               }
             : node
         )
       );
+
+      // Update backend
+      try {
+        await schemaApiService.updateAttribute(
+          modelName,
+          fieldId,
+          fieldName,
+          fieldType
+        );
+      } catch (error) {
+        console.error("Failed to update field on server:", error);
+        // Optionally revert local changes or show error
+      }
     },
     []
   );
@@ -143,6 +126,7 @@ export const useSchemaData = () => {
     edges,
     loading,
     error,
+    schemaInfo,
     setNodes,
     setEdges,
     fetchSchemaData,

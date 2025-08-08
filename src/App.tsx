@@ -1,3 +1,4 @@
+// src/App.tsx
 import { ChakraProvider } from "@chakra-ui/react";
 import { SchemaVisualizer } from "./SchemaVisualizer/SchemaVisualizer";
 import "./index.css";
