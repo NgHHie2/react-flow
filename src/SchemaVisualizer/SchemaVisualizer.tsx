@@ -63,7 +63,7 @@ export const SchemaVisualizer = () => {
   }
 
   // Render main schema visualizer
-  console.log("Rendering main ReactFlow with", reactFlowNodes.length, "nodes");
+
   return (
     <Box height="100vh" width="100vw" bg="#1C1c1c" position="relative">
       {/* Schema Info Panel */}

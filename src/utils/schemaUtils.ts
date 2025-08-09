@@ -8,7 +8,7 @@ import {
 } from "../SchemaVisualizer/SchemaVisualizer.types";
 
 export const createNodePositionUpdate = (node: Node): NodePositionUpdate => ({
-  modelName: node.id,
+  nodeId: node.data.nodeId,
   positionX: node.position.x,
   positionY: node.position.y,
 });
@@ -54,6 +54,7 @@ export const convertToReactFlowData = (
     position: { x: model.positionX, y: model.positionY },
     data: {
       ...model,
+      nodeId: model.nodeId,
       onFieldUpdate,
     },
     type: "model",
@@ -83,13 +84,7 @@ export const convertToReactFlowData = (
             stroke: connection.strokeColor,
             strokeWidth: connection.strokeWidth,
           },
-          markerEnd: {
-            type:
-              connection.targetArrowType?.toLowerCase() === "crow_foot"
-                ? MarkerType.ArrowClosed
-                : MarkerType.ArrowClosed,
-            color: connection.strokeColor,
-          },
+
           label: connection.foreignKeyName,
           labelStyle: {
             fontSize: "10px",

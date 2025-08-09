@@ -31,8 +31,6 @@ export const useSchemaVisualizer = () => {
     schemaInfo,
     fetchSchemaData,
     initializeData,
-    updateNodePosition,
-    updateField,
   } = useSchemaData();
 
   const [reactFlowNodes, setReactFlowNodes, onNodesChange] = useNodesState([]);
@@ -45,7 +43,7 @@ export const useSchemaVisualizer = () => {
   const websocketHandlers = useRef({
     onNodePositionUpdate: (data: any) => {
       console.log("Received node position update:", data);
-      updateNodePosition(data.modelName, data.positionX, data.positionY);
+      updateNodePosition(data.nodeId, data.positionX, data.positionY);
     },
     onFieldUpdate: (data: any) => {
       console.log("Received field update:", data);

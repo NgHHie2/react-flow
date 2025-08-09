@@ -59,68 +59,6 @@ export const useSchemaData = () => {
     [fetchSchemaData, toast]
   );
 
-  const updateNodePosition = useCallback(
-    async (nodeId: string, x: number, y: number) => {
-      // Update local state immediately for smooth UX
-      setNodes((nds) =>
-        nds.map((node) =>
-          node.id === nodeId ? { ...node, position: { x, y } } : node
-        )
-      );
-
-      // Update backend
-      try {
-        await schemaApiService.updateModelPosition(nodeId, x, y);
-      } catch (error) {
-        console.error("Failed to update position on server:", error);
-        // Optionally revert local changes or show error
-      }
-    },
-    []
-  );
-
-  const updateField = useCallback(
-    async (
-      modelName: string,
-      fieldId: number,
-      fieldName: string,
-      fieldType: string
-    ) => {
-      // Update local state immediately
-      setNodes((nds) =>
-        nds.map((node) =>
-          node.id === modelName
-            ? {
-                ...node,
-                data: {
-                  ...node.data,
-                  attributes: node.data.attributes.map((attr: any) =>
-                    attr.id === fieldId
-                      ? { ...attr, name: fieldName, dataType: fieldType }
-                      : attr
-                  ),
-                },
-              }
-            : node
-        )
-      );
-
-      // Update backend
-      try {
-        await schemaApiService.updateAttribute(
-          modelName,
-          fieldId,
-          fieldName,
-          fieldType
-        );
-      } catch (error) {
-        console.error("Failed to update field on server:", error);
-        // Optionally revert local changes or show error
-      }
-    },
-    []
-  );
-
   return {
     nodes,
     edges,
@@ -131,7 +69,5 @@ export const useSchemaData = () => {
     setEdges,
     fetchSchemaData,
     initializeData,
-    updateNodePosition,
-    updateField,
   };
 };

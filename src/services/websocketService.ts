@@ -3,7 +3,7 @@ import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 
 export interface NodePositionUpdate {
-  modelName: string;
+  nodeId: string;
   positionX: number;
   positionY: number;
   sessionId?: string;
