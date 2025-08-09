@@ -8,7 +8,7 @@ import {
 } from "../SchemaVisualizer/SchemaVisualizer.types";
 
 export const createNodePositionUpdate = (node: Node): NodePositionUpdate => ({
-  nodeId: node.data.nodeId,
+  nodeId: node.id,
   positionX: node.position.x,
   positionY: node.position.y,
 });
@@ -54,7 +54,6 @@ export const convertToReactFlowData = (
     position: { x: model.positionX, y: model.positionY },
     data: {
       ...model,
-      nodeId: model.nodeId,
       onFieldUpdate,
     },
     type: "model",

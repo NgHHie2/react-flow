@@ -31,6 +31,8 @@ export const useSchemaVisualizer = () => {
     schemaInfo,
     fetchSchemaData,
     initializeData,
+    updateNodePosition,
+    updateField,
   } = useSchemaData();
 
   const [reactFlowNodes, setReactFlowNodes, onNodesChange] = useNodesState([]);

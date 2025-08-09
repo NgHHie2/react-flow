@@ -59,6 +59,47 @@ export const useSchemaData = () => {
     [fetchSchemaData, toast]
   );
 
+  const updateNodePosition = useCallback(
+    async (nodeId: string, x: number, y: number) => {
+      // Update local state immediately for smooth UX
+      setNodes((nds) =>
+        nds.map((node) =>
+          node.id === nodeId ? { ...node, position: { x, y } } : node
+        )
+      );
+    },
+    []
+  );
+
+  const updateField = useCallback(
+    async (
+      modelName: string,
+      fieldId: number,
+      fieldName: string,
+      fieldType: string
+    ) => {
+      // Update local state immediately
+      setNodes((nds) =>
+        nds.map((node) =>
+          node.id === modelName
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  attributes: node.data.attributes.map((attr: any) =>
+                    attr.id === fieldId
+                      ? { ...attr, name: fieldName, dataType: fieldType }
+                      : attr
+                  ),
+                },
+              }
+            : node
+        )
+      );
+    },
+    []
+  );
+
   return {
     nodes,
     edges,
@@ -69,5 +110,7 @@ export const useSchemaData = () => {
     setEdges,
     fetchSchemaData,
     initializeData,
+    updateNodePosition,
+    updateField,
   };
 };
