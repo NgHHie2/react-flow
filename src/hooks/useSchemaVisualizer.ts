@@ -49,7 +49,12 @@ export const useSchemaVisualizer = () => {
     },
     onFieldUpdate: (data: any) => {
       console.log("Received field update:", data);
-      updateField(data.modelName, data.fieldId, data.fieldName, data.fieldType);
+      updateField(
+        data.modelName,
+        data.attributeId,
+        data.attributeName,
+        data.attributeType
+      );
     },
   });
 
@@ -61,7 +66,12 @@ export const useSchemaVisualizer = () => {
     };
     websocketHandlers.current.onFieldUpdate = (data: any) => {
       console.log("Received field update:", data);
-      updateField(data.modelName, data.fieldId, data.fieldName, data.fieldType);
+      updateField(
+        data.modelName,
+        data.attributeId,
+        data.attributeName,
+        data.attributeType
+      );
     };
   }, [updateNodePosition, updateField]);
 
@@ -78,17 +88,28 @@ export const useSchemaVisualizer = () => {
     };
   }, [sendFieldUpdate]);
 
+  const reactFlowNodesRef = useRef(reactFlowNodes);
+  useEffect(() => {
+    reactFlowNodesRef.current = reactFlowNodes;
+  }, [reactFlowNodes]);
+
   // Field update handler - memoized with current nodes
   const handleFieldUpdate = useCallback(
-    (fieldId: number, fieldName: string, fieldType: string) => {
-      console.log("Field update requested:", { fieldId, fieldName, fieldType });
-      const currentNodes = reactFlowNodes;
+    (attributeId: number, attributeName: string, attributeType: string) => {
+      console.log("Field update requested:", {
+        attributeId,
+        attributeName,
+        attributeType,
+      });
+      const currentNodes = reactFlowNodesRef.current; // ✅ Always current
       const fieldUpdate = createFieldUpdate(
         currentNodes,
-        fieldId,
-        fieldName,
-        fieldType
+        attributeId,
+        attributeName,
+        attributeType
       );
+      console.log(currentNodes);
+      console.log(fieldUpdate);
       if (fieldUpdate && window.sendFieldUpdate) {
         console.log("Sending field update:", fieldUpdate);
         window.sendFieldUpdate(fieldUpdate);

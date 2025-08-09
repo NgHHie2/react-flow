@@ -11,9 +11,9 @@ export interface NodePositionUpdate {
 }
 
 export interface FieldUpdate {
-  fieldId: number;
-  fieldName: string;
-  fieldType: string;
+  attributeId: number;
+  attributeName: string;
+  attributeType: string;
   modelName: string;
   sessionId?: string;
 }
@@ -244,7 +244,7 @@ class WebSocketService {
 
     try {
       this.client.publish({
-        destination: "/app/updateField",
+        destination: "/app/updateAttribute",
         body: JSON.stringify(update),
       });
     } catch (error) {

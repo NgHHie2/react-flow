@@ -16,20 +16,21 @@ export const createNodePositionUpdate = (node: Node): NodePositionUpdate => ({
 
 export const createFieldUpdate = (
   nodes: Node[],
-  fieldId: number,
-  fieldName: string,
-  fieldType: string
+  attributeId: number,
+  attributeName: string,
+  attributeType: string
 ): FieldUpdate | null => {
+  console.log;
   const modelName = nodes.find((node) =>
-    node.data.attributes?.some((attribute: any) => attribute.id === fieldId)
+    node.data.attributes?.some((attribute: any) => attribute.id === attributeId)
   )?.id;
-
+  console.log(modelName);
   if (!modelName) return null;
 
   return {
-    fieldId,
-    fieldName,
-    fieldType,
+    attributeId,
+    attributeName,
+    attributeType,
     modelName,
   };
 };

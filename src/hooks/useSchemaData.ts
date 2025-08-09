@@ -74,9 +74,9 @@ export const useSchemaData = () => {
   const updateField = useCallback(
     async (
       modelName: string,
-      fieldId: number,
-      fieldName: string,
-      fieldType: string
+      attributeId: number,
+      attributeName: string,
+      attributeType: string
     ) => {
       // Update local state immediately
       setNodes((nds) =>
@@ -87,8 +87,12 @@ export const useSchemaData = () => {
                 data: {
                   ...node.data,
                   attributes: node.data.attributes.map((attr: any) =>
-                    attr.id === fieldId
-                      ? { ...attr, name: fieldName, dataType: fieldType }
+                    attr.id === attributeId
+                      ? {
+                          ...attr,
+                          name: attributeName,
+                          dataType: attributeType,
+                        }
                       : attr
                   ),
                 },
