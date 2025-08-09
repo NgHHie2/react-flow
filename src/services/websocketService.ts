@@ -6,6 +6,7 @@ export interface NodePositionUpdate {
   nodeId: string;
   positionX: number;
   positionY: number;
+  diagramId: number;
   sessionId?: string;
 }
 

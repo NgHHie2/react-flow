@@ -11,6 +11,7 @@ export const createNodePositionUpdate = (node: Node): NodePositionUpdate => ({
   nodeId: node.id,
   positionX: node.position.x,
   positionY: node.position.y,
+  diagramId: node.data.diagramId,
 });
 
 export const createFieldUpdate = (
@@ -54,6 +55,7 @@ export const convertToReactFlowData = (
     position: { x: model.positionX, y: model.positionY },
     data: {
       ...model,
+      diagramId: data.id,
       onFieldUpdate,
     },
     type: "model",
