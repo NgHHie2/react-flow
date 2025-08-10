@@ -1,4 +1,4 @@
-// src/hooks/useSchemaData.ts
+// src/hooks/useSchemaData.ts - Updated with attribute management
 import { useState, useCallback } from "react";
 import { useToast } from "@chakra-ui/react";
 import { Node, Edge } from "reactflow";
@@ -104,6 +104,184 @@ export const useSchemaData = () => {
     []
   );
 
+  const togglePrimaryKey = useCallback(
+    async (modelName: string, attributeId: number) => {
+      // Update local state immediately
+      setNodes((nds) =>
+        nds.map((node) =>
+          node.id === modelName
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  attributes: node.data.attributes.map((attr: any) =>
+                    attr.id === attributeId
+                      ? {
+                          ...attr,
+                          isPrimaryKey: !attr.isPrimaryKey,
+                          // If setting as PK, remove FK status
+                          isForeignKey: !attr.isPrimaryKey
+                            ? false
+                            : attr.isForeignKey,
+                        }
+                      : attr
+                  ),
+                },
+              }
+            : node
+        )
+      );
+    },
+    []
+  );
+
+  const toggleForeignKey = useCallback(
+    async (modelName: string, attributeId: number) => {
+      // Update local state immediately
+      setNodes((nds) =>
+        nds.map((node) =>
+          node.id === modelName
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  attributes: node.data.attributes.map((attr: any) =>
+                    attr.id === attributeId
+                      ? {
+                          ...attr,
+                          isForeignKey: !attr.isForeignKey,
+                          // If setting as FK, remove PK status
+                          isPrimaryKey: !attr.isForeignKey
+                            ? false
+                            : attr.isPrimaryKey,
+                        }
+                      : attr
+                  ),
+                },
+              }
+            : node
+        )
+      );
+    },
+    []
+  );
+
+  const addAttribute = useCallback(
+    async (
+      modelName: string,
+      attributeName: string,
+      dataType: string,
+      realAttributeId?: number
+    ) => {
+      if (realAttributeId) {
+        // This is a sync update from backend with real ID
+        // Remove the temporary attribute and add the real one
+        setNodes((nds) =>
+          nds.map((node) =>
+            node.id === modelName
+              ? {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    attributes: [
+                      // Keep all non-temporary attributes
+                      ...node.data.attributes.filter(
+                        (attr: any) => !attr.isTemporary
+                      ),
+                      // Add the real attribute
+                      {
+                        id: realAttributeId,
+                        name: attributeName,
+                        dataType: dataType,
+                        isNullable: true,
+                        isPrimaryKey: false,
+                        isForeignKey: false,
+                        attributeOrder: node.data.attributes.length - 1, // Replace temp position
+                      },
+                    ],
+                  },
+                }
+              : node
+          )
+        );
+
+        console.log(
+          "✅ Replaced temporary attribute with real ID:",
+          realAttributeId
+        );
+      } else {
+        // This is initial optimistic update with temp ID
+        const tempId = Date.now();
+        setNodes((nds) =>
+          nds.map((node) =>
+            node.id === modelName
+              ? {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    attributes: [
+                      ...node.data.attributes,
+                      {
+                        id: tempId, // Temporary ID
+                        name: attributeName,
+                        dataType: dataType,
+                        isNullable: true,
+                        isPrimaryKey: false,
+                        isForeignKey: false,
+                        attributeOrder: node.data.attributes.length,
+                        isTemporary: true, // Mark as temporary
+                      },
+                    ],
+                  },
+                }
+              : node
+          )
+        );
+
+        console.log("⏳ Added temporary attribute with ID:", tempId);
+
+        toast({
+          title: "Attribute Added",
+          description: `Added ${attributeName} to ${modelName}`,
+          status: "success",
+          duration: 2000,
+          isClosable: true,
+        });
+      }
+    },
+    [toast]
+  );
+
+  const deleteAttribute = useCallback(
+    async (modelName: string, attributeId: number) => {
+      // Update local state immediately
+      setNodes((nds) =>
+        nds.map((node) =>
+          node.id === modelName
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  attributes: node.data.attributes.filter(
+                    (attr: any) => attr.id !== attributeId
+                  ),
+                },
+              }
+            : node
+        )
+      );
+
+      toast({
+        title: "Attribute Deleted",
+        description: `Removed attribute from ${modelName}`,
+        status: "info",
+        duration: 2000,
+        isClosable: true,
+      });
+    },
+    [toast]
+  );
+
   return {
     nodes,
     edges,
@@ -116,5 +294,9 @@ export const useSchemaData = () => {
     initializeData,
     updateNodePosition,
     updateField,
+    togglePrimaryKey,
+    toggleForeignKey,
+    addAttribute,
+    deleteAttribute,
   };
 };

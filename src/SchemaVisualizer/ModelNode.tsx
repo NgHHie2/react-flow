@@ -13,6 +13,13 @@ interface ModelNodeData extends Model {
     fieldName: string,
     fieldType: string
   ) => void;
+  onToggleKeyType?: (
+    modelName: string,
+    attributeId: number,
+    keyType: "NORMAL" | "PRIMARY" | "FOREIGN"
+  ) => void;
+  onAddAttribute?: (modelName: string) => void;
+  onDeleteAttribute?: (modelName: string, attributeId: number) => void;
 }
 
 export default function ModelNode({ data, id }: NodeProps<ModelNodeData>) {
@@ -30,6 +37,28 @@ export default function ModelNode({ data, id }: NodeProps<ModelNodeData>) {
     }
   };
 
+  const handleToggleKeyType = (
+    fieldIndex: number,
+    keyType: "NORMAL" | "PRIMARY" | "FOREIGN"
+  ) => {
+    const attribute = data.attributes[fieldIndex];
+    if (data.onToggleKeyType) {
+      data.onToggleKeyType(data.name, attribute.id, keyType);
+    }
+  };
+
+  const handleAddAttribute = () => {
+    if (data.onAddAttribute) {
+      data.onAddAttribute(data.name);
+    }
+  };
+
+  const handleDeleteAttribute = (attributeId: number) => {
+    if (data.onDeleteAttribute) {
+      data.onDeleteAttribute(data.name, attributeId);
+    }
+  };
+
   // Sort attributes by order
   const sortedAttributes = [...data.attributes].sort(
     (a, b) => a.attributeOrder - b.attributeOrder
@@ -38,8 +67,9 @@ export default function ModelNode({ data, id }: NodeProps<ModelNodeData>) {
   return (
     <Box
       borderRadius={`${data.borderRadius || 8}px`}
-      minWidth={`${data.width || 280}px`}
-      maxWidth={`${data.width + 50 || 350}px`}
+      width="280px" // Fixed width
+      minWidth="280px"
+      maxWidth="280px"
       bg={data.backgroundColor || "#f1f5f9"}
       border={`${data.borderWidth || 2}px solid ${
         data.borderColor || "#e2e8f0"
@@ -50,6 +80,7 @@ export default function ModelNode({ data, id }: NodeProps<ModelNodeData>) {
           "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
       }}
       transition="all 0.2s ease-in-out"
+      overflow="hidden" // Prevent content overflow
     >
       {/* Model Header */}
       <ModelHeader model={data} />
@@ -64,12 +95,14 @@ export default function ModelNode({ data, id }: NodeProps<ModelNodeData>) {
             fieldIndex={index}
             onFieldNameUpdate={handleFieldNameUpdate}
             onFieldTypeUpdate={handleFieldTypeUpdate}
+            onToggleKeyType={handleToggleKeyType}
+            onDeleteAttribute={handleDeleteAttribute}
           />
         ))}
       </Box>
 
       {/* Model Footer */}
-      <ModelFooter model={data} />
+      <ModelFooter model={data} onAddAttribute={handleAddAttribute} />
     </Box>
   );
 }

@@ -1,9 +1,10 @@
-// src/services/websocketService.ts
+// src/services/websocketService.ts - Updated with new message types
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 
 export interface NodePositionUpdate {
   nodeId: string;
+  modelId: number;
   positionX: number;
   positionY: number;
   diagramId: number;
@@ -15,6 +16,36 @@ export interface FieldUpdate {
   attributeName: string;
   attributeType: string;
   modelName: string;
+  modelId: number;
+  sessionId?: string;
+}
+
+export interface TogglePrimaryKeyUpdate {
+  modelName: string;
+  modelId: number;
+  attributeId: number;
+  sessionId?: string;
+}
+
+export interface ToggleForeignKeyUpdate {
+  modelName: string;
+  modelId: number;
+  attributeId: number;
+  sessionId?: string;
+}
+
+export interface AddAttributeUpdate {
+  modelName: string;
+  modelId: number;
+  attributeName: string;
+  dataType: string;
+  sessionId?: string;
+}
+
+export interface DeleteAttributeUpdate {
+  modelName: string;
+  modelId: number;
+  attributeId: number;
   sessionId?: string;
 }
 
@@ -28,6 +59,10 @@ export interface WebSocketResponse<T> {
 export type MessageHandler = {
   onNodePositionUpdate?: (data: NodePositionUpdate) => void;
   onFieldUpdate?: (data: FieldUpdate) => void;
+  onTogglePrimaryKey?: (data: TogglePrimaryKeyUpdate) => void;
+  onToggleForeignKey?: (data: ToggleForeignKeyUpdate) => void;
+  onAddAttribute?: (data: AddAttributeUpdate) => void;
+  onDeleteAttribute?: (data: DeleteAttributeUpdate) => void;
   onError?: (error: string) => void;
   onConnect?: () => void;
   onDisconnect?: () => void;
@@ -89,7 +124,6 @@ class WebSocketService {
         this.connected = false;
         this.handlers.onDisconnect?.();
 
-        // Auto-reconnect nếu không phải manual disconnect
         if (!this.isManualDisconnect) {
           this.scheduleReconnect();
         }
@@ -180,7 +214,7 @@ class WebSocketService {
         try {
           const response: WebSocketResponse<any> = JSON.parse(message.body);
 
-          // Không xử lý message từ chính session này
+          // Don't process messages from our own session
           if (response.sessionId === this.getSessionId()) {
             return;
           }
@@ -193,6 +227,26 @@ class WebSocketService {
               break;
             case "FIELD_UPDATE":
               this.handlers.onFieldUpdate?.(response.data as FieldUpdate);
+              break;
+            case "TOGGLE_PRIMARY_KEY":
+              this.handlers.onTogglePrimaryKey?.(
+                response.data as TogglePrimaryKeyUpdate
+              );
+              break;
+            case "TOGGLE_FOREIGN_KEY":
+              this.handlers.onToggleForeignKey?.(
+                response.data as ToggleForeignKeyUpdate
+              );
+              break;
+            case "ADD_ATTRIBUTE":
+              this.handlers.onAddAttribute?.(
+                response.data as AddAttributeUpdate
+              );
+              break;
+            case "DELETE_ATTRIBUTE":
+              this.handlers.onDeleteAttribute?.(
+                response.data as DeleteAttributeUpdate
+              );
               break;
             case "ERROR":
               this.handlers.onError?.(response.data as string);
@@ -221,7 +275,6 @@ class WebSocketService {
   sendNodePositionUpdate(update: NodePositionUpdate) {
     if (!this.client || !this.connected) {
       console.warn("WebSocket not connected, queuing message...");
-      // Có thể implement message queue ở đây
       return;
     }
 
@@ -253,6 +306,74 @@ class WebSocketService {
     }
   }
 
+  sendTogglePrimaryKey(update: TogglePrimaryKeyUpdate) {
+    if (!this.client || !this.connected) {
+      console.warn("WebSocket not connected, queuing message...");
+      return;
+    }
+
+    try {
+      this.client.publish({
+        destination: "/app/togglePrimaryKey",
+        body: JSON.stringify(update),
+      });
+    } catch (error) {
+      console.error("Error sending toggle primary key:", error);
+      this.handlers.onError?.("Failed to toggle primary key");
+    }
+  }
+
+  sendToggleForeignKey(update: ToggleForeignKeyUpdate) {
+    if (!this.client || !this.connected) {
+      console.warn("WebSocket not connected, queuing message...");
+      return;
+    }
+
+    try {
+      this.client.publish({
+        destination: "/app/toggleForeignKey",
+        body: JSON.stringify(update),
+      });
+    } catch (error) {
+      console.error("Error sending toggle foreign key:", error);
+      this.handlers.onError?.("Failed to toggle foreign key");
+    }
+  }
+
+  sendAddAttribute(update: AddAttributeUpdate) {
+    if (!this.client || !this.connected) {
+      console.warn("WebSocket not connected, queuing message...");
+      return;
+    }
+
+    try {
+      this.client.publish({
+        destination: "/app/addAttribute",
+        body: JSON.stringify(update),
+      });
+    } catch (error) {
+      console.error("Error sending add attribute:", error);
+      this.handlers.onError?.("Failed to add attribute");
+    }
+  }
+
+  sendDeleteAttribute(update: DeleteAttributeUpdate) {
+    if (!this.client || !this.connected) {
+      console.warn("WebSocket not connected, queuing message...");
+      return;
+    }
+
+    try {
+      this.client.publish({
+        destination: "/app/deleteAttribute",
+        body: JSON.stringify(update),
+      });
+    } catch (error) {
+      console.error("Error sending delete attribute:", error);
+      this.handlers.onError?.("Failed to delete attribute");
+    }
+  }
+
   isConnected(): boolean {
     return this.connected;
   }
@@ -265,7 +386,6 @@ class WebSocketService {
     this.handlers = { ...this.handlers, ...handlers };
   }
 
-  // Method để reset connection state
   reset() {
     this.isManualDisconnect = false;
     this.reconnectAttempts = 0;

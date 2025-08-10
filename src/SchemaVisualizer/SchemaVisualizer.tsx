@@ -1,4 +1,4 @@
-// src/SchemaVisualizer/SchemaVisualizer.tsx
+// src/SchemaVisualizer/SchemaVisualizer.tsx - Fixed drag handling
 import React from "react";
 import { Box } from "@chakra-ui/react";
 
@@ -27,6 +27,10 @@ export const SchemaVisualizer = () => {
     onNodesChange,
     onEdgesChange,
     onConnect,
+
+    // Enhanced drag handlers
+    onNodeDragStart,
+    onNodeDrag,
     onNodeDragStop,
 
     // WebSocket state
@@ -63,7 +67,6 @@ export const SchemaVisualizer = () => {
   }
 
   // Render main schema visualizer
-
   return (
     <Box height="100vh" width="100vw" bg="#1C1c1c" position="relative">
       {/* Schema Info Panel */}
@@ -86,13 +89,15 @@ export const SchemaVisualizer = () => {
       {/* Connection Status */}
       <ConnectionStatus isConnected={isConnected} />
 
-      {/* ReactFlow Canvas */}
+      {/* ReactFlow Canvas with Enhanced Drag Handling */}
       <ReactFlowCanvas
         nodes={reactFlowNodes}
         edges={reactFlowEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeDragStart={onNodeDragStart}
+        onNodeDrag={onNodeDrag}
         onNodeDragStop={onNodeDragStop}
         schemaInfo={schemaInfo}
       />

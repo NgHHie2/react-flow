@@ -9,6 +9,7 @@ import {
 
 export const createNodePositionUpdate = (node: Node): NodePositionUpdate => ({
   nodeId: node.id,
+  modelId: node.data.id, // Get modelId from node data
   positionX: node.position.x,
   positionY: node.position.y,
   diagramId: node.data.diagramId,
@@ -20,18 +21,18 @@ export const createFieldUpdate = (
   attributeName: string,
   attributeType: string
 ): FieldUpdate | null => {
-  console.log;
-  const modelName = nodes.find((node) =>
+  const node = nodes.find((node) =>
     node.data.attributes?.some((attribute: any) => attribute.id === attributeId)
-  )?.id;
-  console.log(modelName);
-  if (!modelName) return null;
+  );
+
+  if (!node) return null;
 
   return {
     attributeId,
     attributeName,
     attributeType,
-    modelName,
+    modelName: node.id,
+    modelId: node.data.id, // Get modelId from node data
   };
 };
 

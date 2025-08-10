@@ -1,4 +1,4 @@
-// src/components/ReactFlowCanvas.tsx
+// src/components/ReactFlowCanvas.tsx - Fixed drag detection
 import React from "react";
 import ReactFlow, {
   Background,
@@ -25,6 +25,8 @@ interface ReactFlowCanvasProps {
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
+  onNodeDragStart?: (event: React.MouseEvent, node: Node) => void;
+  onNodeDrag?: (event: React.MouseEvent, node: Node) => void;
   onNodeDragStop: (event: React.MouseEvent, node: Node) => void;
   schemaInfo?: SchemaData | null;
 }
@@ -35,6 +37,8 @@ export const ReactFlowCanvas: React.FC<ReactFlowCanvasProps> = ({
   onNodesChange,
   onEdgesChange,
   onConnect,
+  onNodeDragStart,
+  onNodeDrag,
   onNodeDragStop,
   schemaInfo,
 }) => {
@@ -45,6 +49,8 @@ export const ReactFlowCanvas: React.FC<ReactFlowCanvasProps> = ({
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={onConnect}
+      onNodeDragStart={onNodeDragStart}
+      onNodeDrag={onNodeDrag}
       onNodeDragStop={onNodeDragStop}
       nodeTypes={modelTypes}
       fitView
@@ -57,6 +63,8 @@ export const ReactFlowCanvas: React.FC<ReactFlowCanvasProps> = ({
       zoomOnScroll={true}
       zoomOnPinch={true}
       panOnScroll={false}
+      // Prevent node selection on click to avoid visual jumps
+      nodesFocusable={false}
       defaultViewport={{
         x: schemaInfo?.panX || 0,
         y: schemaInfo?.panY || 0,

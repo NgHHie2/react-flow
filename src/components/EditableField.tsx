@@ -1,4 +1,4 @@
-// src/components/EditableField.tsx
+// src/components/EditableField.tsx - Fixed width consistency
 import React, { useState, useRef, useEffect } from "react";
 import { Box, Input, useToast } from "@chakra-ui/react";
 
@@ -10,6 +10,8 @@ interface EditableFieldProps {
   onEditingChange?: (isEditing: boolean) => void;
   color?: string;
   minWidth?: string;
+  maxWidth?: string;
+  flex?: number;
 }
 
 export const EditableField: React.FC<EditableFieldProps> = ({
@@ -20,10 +22,14 @@ export const EditableField: React.FC<EditableFieldProps> = ({
   onEditingChange,
   color = "white",
   minWidth = "80px",
+  maxWidth,
+  flex,
 }) => {
   const [editValue, setEditValue] = useState(value);
   const [localIsEditing, setLocalIsEditing] = useState(isEditing);
   const inputRef = useRef<HTMLInputElement>(null);
+  const textBoxRef = useRef<HTMLDivElement>(null);
+  const [textBoxWidth, setTextBoxWidth] = useState<number | undefined>();
   const toast = useToast();
 
   const actualIsEditing = onEditingChange ? isEditing : localIsEditing;
@@ -40,7 +46,21 @@ export const EditableField: React.FC<EditableFieldProps> = ({
     }
   }, [actualIsEditing]);
 
-  const handleDoubleClick = () => {
+  // Measure text box width when not editing
+  useEffect(() => {
+    if (!actualIsEditing && textBoxRef.current) {
+      const rect = textBoxRef.current.getBoundingClientRect();
+      setTextBoxWidth(rect.width);
+    }
+  }, [actualIsEditing, value]);
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent node drag
+    // Measure current width before switching to edit mode
+    if (textBoxRef.current) {
+      const rect = textBoxRef.current.getBoundingClientRect();
+      setTextBoxWidth(rect.width);
+    }
     setActualIsEditing(true);
   };
 
@@ -72,6 +92,7 @@ export const EditableField: React.FC<EditableFieldProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    e.stopPropagation(); // Prevent any parent handlers
     if (e.key === "Enter") {
       e.preventDefault();
       handleSave();
@@ -85,6 +106,40 @@ export const EditableField: React.FC<EditableFieldProps> = ({
     handleSave();
   };
 
+  const handleInputClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent node drag when clicking input
+  };
+
+  const handleTextBoxClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent node drag when clicking text
+  };
+
+  const getFlexStyles = () => {
+    if (flex) {
+      return { flex: flex };
+    }
+    return {};
+  };
+
+  const getWidthStyles = () => {
+    const styles: React.CSSProperties = {
+      minWidth,
+      ...getFlexStyles(),
+    };
+
+    if (maxWidth) {
+      styles.maxWidth = maxWidth;
+    }
+
+    // Use measured width when editing to prevent expansion
+    if (actualIsEditing && textBoxWidth) {
+      styles.width = `${textBoxWidth}px`;
+      styles.maxWidth = `${textBoxWidth}px`;
+    }
+
+    return styles;
+  };
+
   if (actualIsEditing) {
     return (
       <Input
@@ -93,18 +148,24 @@ export const EditableField: React.FC<EditableFieldProps> = ({
         onChange={(e) => setEditValue(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
+        onClick={handleInputClick}
         size="sm"
         variant="filled"
         bg="rgba(255, 255, 255, 0.1)"
         color={color}
         border="1px solid #4A90E2"
-        minWidth={minWidth}
         fontFamily="monospace"
-        fontSize="sm"
+        fontSize="14px"
+        p={1}
+        style={getWidthStyles()}
         _focus={{
           bg: "rgba(255, 255, 255, 0.15)",
           borderColor: "#4A90E2",
           boxShadow: "0 0 0 1px #4A90E2",
+          outline: "none",
+        }}
+        _hover={{
+          bg: "rgba(255, 255, 255, 0.12)",
         }}
       />
     );
@@ -112,23 +173,36 @@ export const EditableField: React.FC<EditableFieldProps> = ({
 
   return (
     <Box
+      ref={textBoxRef}
       color={color}
       cursor="pointer"
       onDoubleClick={handleDoubleClick}
-      minWidth={minWidth}
+      onClick={handleTextBoxClick}
       p={1}
       borderRadius="sm"
       border="1px solid transparent"
+      fontFamily="monospace"
+      fontSize="14px"
+      style={getWidthStyles()}
       _hover={{
         bg: "rgba(255, 255, 255, 0.05)",
         borderColor: "rgba(74, 144, 226, 0.5)",
       }}
       transition="all 0.15s ease-in-out"
       title="Double click to edit"
+      // Ensure consistent height
+      minHeight="24px"
+      display="flex"
+      alignItems="center"
+      overflow="hidden"
+      textOverflow="ellipsis"
+      whiteSpace="nowrap"
     >
-      <pre style={{ margin: 0, fontFamily: "monospace", fontSize: "14px" }}>
-        {value || placeholder}
-      </pre>
+      {value || (
+        <Box color="gray.500" fontStyle="italic">
+          {placeholder}
+        </Box>
+      )}
     </Box>
   );
 };
