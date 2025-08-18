@@ -1,6 +1,6 @@
 // src/utils/schemaUtils.ts
 import { Node, Edge, MarkerType } from "reactflow";
-import { NodePositionUpdate, FieldUpdate } from "../services/websocketService";
+import { NodePositionUpdate, FieldUpdate } from "../types/websocket.types";
 import {
   SchemaData,
   Model,

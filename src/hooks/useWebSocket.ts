@@ -1,15 +1,15 @@
-// src/hooks/useWebSocket.ts - Updated with new handlers
+// src/hooks/useWebSocket.ts - Updated with filtering
 import { useEffect, useState, useCallback } from "react";
 import { useToast } from "@chakra-ui/react";
+import { websocketService } from "../services/websocketService";
 import {
-  websocketService,
   NodePositionUpdate,
   FieldUpdate,
   TogglePrimaryKeyUpdate,
   ToggleForeignKeyUpdate,
   AddAttributeUpdate,
   DeleteAttributeUpdate,
-} from "../services/websocketService";
+} from "../types/websocket.types";
 
 interface UseWebSocketProps {
   onNodePositionUpdate: (data: NodePositionUpdate) => void;
@@ -68,12 +68,30 @@ export const useWebSocket = ({
 
   useEffect(() => {
     websocketService.connect({
-      onNodePositionUpdate,
-      onFieldUpdate,
-      onTogglePrimaryKey,
-      onToggleForeignKey,
-      onAddAttribute,
-      onDeleteAttribute,
+      onNodePositionUpdate: (data) => {
+        console.log("📍 Received position update from other client:", data);
+        onNodePositionUpdate(data);
+      },
+      onFieldUpdate: (data) => {
+        console.log("✏️ Received field update from other client:", data);
+        onFieldUpdate(data);
+      },
+      onTogglePrimaryKey: (data) => {
+        console.log("🔑 Received primary key toggle from other client:", data);
+        onTogglePrimaryKey(data);
+      },
+      onToggleForeignKey: (data) => {
+        console.log("🔗 Received foreign key toggle from other client:", data);
+        onToggleForeignKey(data);
+      },
+      onAddAttribute: (data) => {
+        console.log("➕ Received add attribute from other client:", data);
+        onAddAttribute(data);
+      },
+      onDeleteAttribute: (data) => {
+        console.log("➖ Received delete attribute from other client:", data);
+        onDeleteAttribute(data);
+      },
       onError: handleWebSocketError,
       onConnect: handleConnect,
       onDisconnect: handleDisconnect,
@@ -86,36 +104,60 @@ export const useWebSocket = ({
 
   const sendNodePositionUpdate = useCallback((update: NodePositionUpdate) => {
     if (websocketService.isConnected()) {
+      console.log(
+        "📤 Sending position update (will be filtered for this client):",
+        update
+      );
       websocketService.sendNodePositionUpdate(update);
     }
   }, []);
 
   const sendFieldUpdate = useCallback((update: FieldUpdate) => {
     if (websocketService.isConnected()) {
+      console.log(
+        "📤 Sending field update (will be filtered for this client):",
+        update
+      );
       websocketService.sendFieldUpdate(update);
     }
   }, []);
 
   const sendTogglePrimaryKey = useCallback((update: TogglePrimaryKeyUpdate) => {
     if (websocketService.isConnected()) {
+      console.log(
+        "📤 Sending toggle primary key (will be filtered for this client):",
+        update
+      );
       websocketService.sendTogglePrimaryKey(update);
     }
   }, []);
 
   const sendToggleForeignKey = useCallback((update: ToggleForeignKeyUpdate) => {
     if (websocketService.isConnected()) {
+      console.log(
+        "📤 Sending toggle foreign key (will be filtered for this client):",
+        update
+      );
       websocketService.sendToggleForeignKey(update);
     }
   }, []);
 
   const sendAddAttribute = useCallback((update: AddAttributeUpdate) => {
     if (websocketService.isConnected()) {
+      console.log(
+        "📤 Sending add attribute (will be filtered for this client):",
+        update
+      );
       websocketService.sendAddAttribute(update);
     }
   }, []);
 
   const sendDeleteAttribute = useCallback((update: DeleteAttributeUpdate) => {
     if (websocketService.isConnected()) {
+      console.log(
+        "📤 Sending delete attribute (will be filtered for this client):",
+        update
+      );
       websocketService.sendDeleteAttribute(update);
     }
   }, []);

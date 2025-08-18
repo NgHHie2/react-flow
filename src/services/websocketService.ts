@@ -1,98 +1,65 @@
-// src/services/websocketService.ts - Updated with new message types
+// src/services/websocketService.ts
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 
-export interface NodePositionUpdate {
-  nodeId: string;
-  modelId: number;
-  positionX: number;
-  positionY: number;
-  diagramId: number;
-  sessionId?: string;
-}
+// Types
+import {
+  MessageHandler,
+  ConnectionState,
+  NodePositionUpdate,
+  FieldUpdate,
+  TogglePrimaryKeyUpdate,
+  ToggleForeignKeyUpdate,
+  AddAttributeUpdate,
+  DeleteAttributeUpdate,
+} from "../types/websocket.types";
 
-export interface FieldUpdate {
-  attributeId: number;
-  attributeName: string;
-  attributeType: string;
-  modelName: string;
-  modelId: number;
-  sessionId?: string;
-}
+// Constants
+import {
+  WS_CONFIG,
+  DESTINATIONS,
+  TOPICS,
+} from "../constants/websocket.constants";
 
-export interface TogglePrimaryKeyUpdate {
-  modelName: string;
-  modelId: number;
-  attributeId: number;
-  sessionId?: string;
-}
-
-export interface ToggleForeignKeyUpdate {
-  modelName: string;
-  modelId: number;
-  attributeId: number;
-  sessionId?: string;
-}
-
-export interface AddAttributeUpdate {
-  modelName: string;
-  modelId: number;
-  attributeName: string;
-  dataType: string;
-  sessionId?: string;
-}
-
-export interface DeleteAttributeUpdate {
-  modelName: string;
-  modelId: number;
-  attributeId: number;
-  sessionId?: string;
-}
-
-export interface WebSocketResponse<T> {
-  type: string;
-  data: T;
-  sessionId: string;
-  timestamp: number;
-}
-
-export type MessageHandler = {
-  onNodePositionUpdate?: (data: NodePositionUpdate) => void;
-  onFieldUpdate?: (data: FieldUpdate) => void;
-  onTogglePrimaryKey?: (data: TogglePrimaryKeyUpdate) => void;
-  onToggleForeignKey?: (data: ToggleForeignKeyUpdate) => void;
-  onAddAttribute?: (data: AddAttributeUpdate) => void;
-  onDeleteAttribute?: (data: DeleteAttributeUpdate) => void;
-  onError?: (error: string) => void;
-  onConnect?: () => void;
-  onDisconnect?: () => void;
-};
+// Utils
+import {
+  calculateReconnectDelay,
+  parseWebSocketMessage,
+  routeMessage,
+  createDebugLogger,
+  validateMessagePayload,
+  canSendMessage,
+  safeCleanupTimeout,
+  createTrackedMessage,
+  messageTracker,
+} from "../utils/websocket.utils";
 
 class WebSocketService {
   private client: Client | null = null;
-  private connected = false;
   private handlers: MessageHandler = {};
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 10;
-  private reconnectDelay = 1000;
-  private isManualDisconnect = false;
-  private reconnectTimeoutId: NodeJS.Timeout | null = null;
+  private state: ConnectionState = {
+    connected: false,
+    reconnectAttempts: 0,
+    isManualDisconnect: false,
+    reconnectTimeoutId: null,
+    sessionId: null,
+  };
 
   constructor() {
-    this.setupClient();
+    this.setupHMR();
+  }
 
-    // Handle Vite HMR
+  private setupHMR(): void {
     if (import.meta.hot) {
       import.meta.hot.dispose(() => {
-        console.log("HMR: Disposing WebSocket connection");
-        this.isManualDisconnect = true;
+        console.log("🔄 HMR: Disposing WebSocket connection");
+        this.state.isManualDisconnect = true;
         this.disconnect();
       });
 
       import.meta.hot.accept(() => {
-        console.log("HMR: Re-initializing WebSocket");
-        this.isManualDisconnect = false;
-        this.reconnectAttempts = 0;
+        console.log("🔄 HMR: Re-initializing WebSocket");
+        this.resetState();
         setTimeout(() => {
           if (Object.keys(this.handlers).length > 0) {
             this.connect(this.handlers);
@@ -102,297 +69,249 @@ class WebSocketService {
     }
   }
 
-  private setupClient() {
-    this.client = new Client({
-      webSocketFactory: () => new SockJS("http://localhost:8080/ws"),
+  private resetState(): void {
+    this.state.isManualDisconnect = false;
+    this.state.reconnectAttempts = 0;
+    this.state.sessionId = null;
+    safeCleanupTimeout(this.state.reconnectTimeoutId);
+    this.state.reconnectTimeoutId = null;
+    messageTracker.clear();
+  }
+
+  private createClient(): Client {
+    return new Client({
+      webSocketFactory: () => new SockJS(WS_CONFIG.url),
       connectHeaders: {},
-      debug: (str) => {
-        console.log("STOMP: " + str);
-      },
-      reconnectDelay: this.reconnectDelay,
-      heartbeatIncoming: 4000,
-      heartbeatOutgoing: 4000,
-      onConnect: () => {
-        console.log("Connected to WebSocket");
-        this.connected = true;
-        this.reconnectAttempts = 0;
-        this.handlers.onConnect?.();
-        this.subscribeToUpdates();
-      },
-      onDisconnect: () => {
-        console.log("Disconnected from WebSocket");
-        this.connected = false;
-        this.handlers.onDisconnect?.();
-
-        if (!this.isManualDisconnect) {
-          this.scheduleReconnect();
-        }
-      },
-      onStompError: (frame) => {
-        console.error("Broker reported error: " + frame.headers["message"]);
-        console.error("Additional details: " + frame.body);
-        this.handlers.onError?.(
-          "Connection error: " + frame.headers["message"]
-        );
-
-        if (!this.isManualDisconnect) {
-          this.scheduleReconnect();
-        }
-      },
-      onWebSocketError: (error) => {
-        console.error("WebSocket error:", error);
-        if (!this.isManualDisconnect) {
-          this.scheduleReconnect();
-        }
-      },
+      debug: createDebugLogger(),
+      reconnectDelay: WS_CONFIG.reconnectDelay,
+      heartbeatIncoming: WS_CONFIG.heartbeatInterval,
+      heartbeatOutgoing: WS_CONFIG.heartbeatInterval,
+      onConnect: this.handleConnect.bind(this),
+      onDisconnect: this.handleDisconnect.bind(this),
+      onStompError: this.handleStompError.bind(this),
+      onWebSocketError: this.handleWebSocketError.bind(this),
     });
   }
 
-  private scheduleReconnect() {
-    if (this.reconnectTimeoutId) {
-      clearTimeout(this.reconnectTimeoutId);
+  private handleConnect(frame: any): void {
+    console.log("✅ Connected to WebSocket");
+    this.state.connected = true;
+    this.state.reconnectAttempts = 0;
+    this.state.sessionId = this.client?.connectedVersion || null;
+
+    console.log(`🆔 Session ID: ${this.state.sessionId}`);
+
+    this.handlers.onConnect?.();
+    this.subscribeToUpdates();
+  }
+
+  private handleDisconnect(): void {
+    console.log("❌ Disconnected from WebSocket");
+    this.state.connected = false;
+    this.state.sessionId = null;
+    this.handlers.onDisconnect?.();
+
+    if (!this.state.isManualDisconnect) {
+      this.scheduleReconnect();
     }
+  }
+
+  private handleStompError(frame: any): void {
+    const errorMessage = frame.headers?.["message"] || "Unknown STOMP error";
+    console.error("💥 STOMP Error:", errorMessage);
+    this.handlers.onError?.(errorMessage);
+
+    if (!this.state.isManualDisconnect) {
+      this.scheduleReconnect();
+    }
+  }
+
+  private handleWebSocketError(error: any): void {
+    console.error("💥 WebSocket Error:", error);
+    if (!this.state.isManualDisconnect) {
+      this.scheduleReconnect();
+    }
+  }
+
+  private scheduleReconnect(): void {
+    safeCleanupTimeout(this.state.reconnectTimeoutId);
 
     if (
-      this.reconnectAttempts < this.maxReconnectAttempts &&
-      !this.isManualDisconnect
+      this.state.reconnectAttempts < WS_CONFIG.maxReconnectAttempts &&
+      !this.state.isManualDisconnect
     ) {
-      this.reconnectAttempts++;
-      const delay = Math.min(
-        this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1),
-        30000
+      this.state.reconnectAttempts++;
+      const delay = calculateReconnectDelay(
+        this.state.reconnectAttempts,
+        WS_CONFIG.reconnectDelay
       );
 
       console.log(
-        `Scheduling reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`
+        `🔄 Reconnect attempt ${this.state.reconnectAttempts}/${WS_CONFIG.maxReconnectAttempts} in ${delay}ms`
       );
 
-      this.reconnectTimeoutId = setTimeout(() => {
-        if (!this.isManualDisconnect && !this.connected) {
-          console.log(`Reconnect attempt ${this.reconnectAttempts}`);
-          this.setupClient();
+      this.state.reconnectTimeoutId = setTimeout(() => {
+        if (!this.state.isManualDisconnect && !this.state.connected) {
+          this.client = this.createClient();
           this.connect(this.handlers);
         }
       }, delay);
     }
   }
 
-  connect(handlers: MessageHandler = {}) {
-    this.handlers = { ...this.handlers, ...handlers };
-    this.isManualDisconnect = false;
+  private subscribeToUpdates(): void {
+    if (!this.client || !this.state.connected) return;
 
-    if (!this.connected && this.client) {
+    try {
+      // Subscribe to schema updates
+      this.client.subscribe(TOPICS.schemaUpdates, (message) => {
+        this.handleMessage(message.body);
+      });
+
+      // Subscribe to personal error queue
+      this.client.subscribe(TOPICS.userErrors, (message) => {
+        this.handleErrorMessage(message.body);
+      });
+
+      console.log("📡 Subscribed to WebSocket topics");
+    } catch (error) {
+      console.error("❌ Error subscribing to updates:", error);
+      this.handlers.onError?.("Failed to subscribe to updates");
+    }
+  }
+
+  private handleMessage(messageBody: string): void {
+    const response = parseWebSocketMessage(messageBody);
+    if (response) {
+      routeMessage(response, this.handlers, this.state.sessionId);
+    }
+  }
+
+  private handleErrorMessage(messageBody: string): void {
+    const response = parseWebSocketMessage<string>(messageBody);
+    if (response) {
+      this.handlers.onError?.(response.data);
+    }
+  }
+
+  private sendMessage(
+    destination: string,
+    messageType: string,
+    data: any
+  ): void {
+    if (!canSendMessage(this.state.connected, this.client)) {
+      return;
+    }
+
+    if (!validateMessagePayload(data)) {
+      this.handlers.onError?.("Invalid message payload");
+      return;
+    }
+
+    try {
+      // Create message with tracking ID
+      const enhancedData = createTrackedMessage(messageType, data);
+
+      this.client!.publish({
+        destination,
+        body: JSON.stringify(enhancedData),
+      });
+
+      console.log(`📤 Sent ${messageType}:`, enhancedData);
+    } catch (error) {
+      console.error(`❌ Error sending ${messageType}:`, error);
+      this.handlers.onError?.(`Failed to send ${messageType}`);
+    }
+  }
+
+  // Public API
+  connect(handlers: MessageHandler = {}): void {
+    this.handlers = { ...this.handlers, ...handlers };
+    this.state.isManualDisconnect = false;
+
+    if (!this.state.connected) {
       try {
+        this.client = this.createClient();
         this.client.activate();
       } catch (error) {
-        console.error("Failed to connect to WebSocket:", error);
+        console.error("❌ Failed to connect:", error);
         this.handlers.onError?.("Failed to connect to WebSocket");
         this.scheduleReconnect();
       }
     }
   }
 
-  disconnect() {
-    this.isManualDisconnect = true;
+  disconnect(): void {
+    this.state.isManualDisconnect = true;
+    safeCleanupTimeout(this.state.reconnectTimeoutId);
+    this.state.reconnectTimeoutId = null;
 
-    if (this.reconnectTimeoutId) {
-      clearTimeout(this.reconnectTimeoutId);
-      this.reconnectTimeoutId = null;
-    }
-
-    if (this.client && this.connected) {
+    if (this.client && this.state.connected) {
       this.client.deactivate();
     }
   }
 
-  private subscribeToUpdates() {
-    if (!this.client || !this.connected) return;
-
-    try {
-      // Subscribe to schema updates
-      this.client.subscribe("/topic/schema-updates", (message) => {
-        try {
-          const response: WebSocketResponse<any> = JSON.parse(message.body);
-
-          // Don't process messages from our own session
-          if (response.sessionId === this.getSessionId()) {
-            return;
-          }
-
-          switch (response.type) {
-            case "NODE_POSITION_UPDATE":
-              this.handlers.onNodePositionUpdate?.(
-                response.data as NodePositionUpdate
-              );
-              break;
-            case "FIELD_UPDATE":
-              this.handlers.onFieldUpdate?.(response.data as FieldUpdate);
-              break;
-            case "TOGGLE_PRIMARY_KEY":
-              this.handlers.onTogglePrimaryKey?.(
-                response.data as TogglePrimaryKeyUpdate
-              );
-              break;
-            case "TOGGLE_FOREIGN_KEY":
-              this.handlers.onToggleForeignKey?.(
-                response.data as ToggleForeignKeyUpdate
-              );
-              break;
-            case "ADD_ATTRIBUTE":
-              this.handlers.onAddAttribute?.(
-                response.data as AddAttributeUpdate
-              );
-              break;
-            case "DELETE_ATTRIBUTE":
-              this.handlers.onDeleteAttribute?.(
-                response.data as DeleteAttributeUpdate
-              );
-              break;
-            case "ERROR":
-              this.handlers.onError?.(response.data as string);
-              break;
-          }
-        } catch (error) {
-          console.error("Error parsing WebSocket message:", error);
-        }
-      });
-
-      // Subscribe to personal error queue
-      this.client.subscribe("/user/queue/errors", (message) => {
-        try {
-          const response: WebSocketResponse<string> = JSON.parse(message.body);
-          this.handlers.onError?.(response.data);
-        } catch (error) {
-          console.error("Error parsing error message:", error);
-        }
-      });
-    } catch (error) {
-      console.error("Error subscribing to updates:", error);
-      this.handlers.onError?.("Failed to subscribe to updates");
-    }
+  // Message sending methods
+  sendNodePositionUpdate(update: NodePositionUpdate): void {
+    this.sendMessage(
+      DESTINATIONS.updateNodePosition,
+      "NODE_POSITION_UPDATE",
+      update
+    );
   }
 
-  sendNodePositionUpdate(update: NodePositionUpdate) {
-    if (!this.client || !this.connected) {
-      console.warn("WebSocket not connected, queuing message...");
-      return;
-    }
-
-    try {
-      this.client.publish({
-        destination: "/app/updateNodePosition",
-        body: JSON.stringify(update),
-      });
-    } catch (error) {
-      console.error("Error sending node position update:", error);
-      this.handlers.onError?.("Failed to send position update");
-    }
+  sendFieldUpdate(update: FieldUpdate): void {
+    this.sendMessage(DESTINATIONS.updateAttribute, "FIELD_UPDATE", update);
   }
 
-  sendFieldUpdate(update: FieldUpdate) {
-    if (!this.client || !this.connected) {
-      console.warn("WebSocket not connected, queuing message...");
-      return;
-    }
-
-    try {
-      this.client.publish({
-        destination: "/app/updateAttribute",
-        body: JSON.stringify(update),
-      });
-    } catch (error) {
-      console.error("Error sending field update:", error);
-      this.handlers.onError?.("Failed to send field update");
-    }
+  sendTogglePrimaryKey(update: TogglePrimaryKeyUpdate): void {
+    this.sendMessage(
+      DESTINATIONS.togglePrimaryKey,
+      "TOGGLE_PRIMARY_KEY",
+      update
+    );
   }
 
-  sendTogglePrimaryKey(update: TogglePrimaryKeyUpdate) {
-    if (!this.client || !this.connected) {
-      console.warn("WebSocket not connected, queuing message...");
-      return;
-    }
-
-    try {
-      this.client.publish({
-        destination: "/app/togglePrimaryKey",
-        body: JSON.stringify(update),
-      });
-    } catch (error) {
-      console.error("Error sending toggle primary key:", error);
-      this.handlers.onError?.("Failed to toggle primary key");
-    }
+  sendToggleForeignKey(update: ToggleForeignKeyUpdate): void {
+    this.sendMessage(
+      DESTINATIONS.toggleForeignKey,
+      "TOGGLE_FOREIGN_KEY",
+      update
+    );
   }
 
-  sendToggleForeignKey(update: ToggleForeignKeyUpdate) {
-    if (!this.client || !this.connected) {
-      console.warn("WebSocket not connected, queuing message...");
-      return;
-    }
-
-    try {
-      this.client.publish({
-        destination: "/app/toggleForeignKey",
-        body: JSON.stringify(update),
-      });
-    } catch (error) {
-      console.error("Error sending toggle foreign key:", error);
-      this.handlers.onError?.("Failed to toggle foreign key");
-    }
+  sendAddAttribute(update: AddAttributeUpdate): void {
+    this.sendMessage(DESTINATIONS.addAttribute, "ADD_ATTRIBUTE", update);
   }
 
-  sendAddAttribute(update: AddAttributeUpdate) {
-    if (!this.client || !this.connected) {
-      console.warn("WebSocket not connected, queuing message...");
-      return;
-    }
-
-    try {
-      this.client.publish({
-        destination: "/app/addAttribute",
-        body: JSON.stringify(update),
-      });
-    } catch (error) {
-      console.error("Error sending add attribute:", error);
-      this.handlers.onError?.("Failed to add attribute");
-    }
+  sendDeleteAttribute(update: DeleteAttributeUpdate): void {
+    this.sendMessage(DESTINATIONS.deleteAttribute, "DELETE_ATTRIBUTE", update);
   }
 
-  sendDeleteAttribute(update: DeleteAttributeUpdate) {
-    if (!this.client || !this.connected) {
-      console.warn("WebSocket not connected, queuing message...");
-      return;
-    }
-
-    try {
-      this.client.publish({
-        destination: "/app/deleteAttribute",
-        body: JSON.stringify(update),
-      });
-    } catch (error) {
-      console.error("Error sending delete attribute:", error);
-      this.handlers.onError?.("Failed to delete attribute");
-    }
-  }
-
+  // Utility methods
   isConnected(): boolean {
-    return this.connected;
+    return this.state.connected;
   }
 
-  private getSessionId(): string | null {
-    return this.client?.connectedVersion || null;
+  getSessionId(): string | null {
+    return this.state.sessionId;
   }
 
-  updateHandlers(handlers: Partial<MessageHandler>) {
+  updateHandlers(handlers: Partial<MessageHandler>): void {
     this.handlers = { ...this.handlers, ...handlers };
   }
 
-  reset() {
-    this.isManualDisconnect = false;
-    this.reconnectAttempts = 0;
-    if (this.reconnectTimeoutId) {
-      clearTimeout(this.reconnectTimeoutId);
-      this.reconnectTimeoutId = null;
-    }
+  reset(): void {
+    this.resetState();
+  }
+
+  // Debug methods (development only)
+  getConnectionState(): ConnectionState {
+    return { ...this.state };
+  }
+
+  getHandlers(): MessageHandler {
+    return { ...this.handlers };
   }
 }
 
