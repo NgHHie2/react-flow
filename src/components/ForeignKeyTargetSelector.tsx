@@ -129,20 +129,6 @@ export const ForeignKeyTargetSelector: React.FC<
     return "Select target...";
   };
 
-  if (primaryKeyOptions.length === 0) {
-    return (
-      <Box
-        fontSize="xs"
-        color="orange.300"
-        p={1}
-        textAlign="center"
-        fontStyle="italic"
-      >
-        No primary keys available
-      </Box>
-    );
-  }
-
   return (
     <Popover
       isOpen={isOpen}

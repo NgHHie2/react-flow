@@ -79,6 +79,7 @@ export const useSchemaVisualizer = () => {
     sendDeleteAttribute,
     sendForeignKeyConnect,
     sendForeignKeyDisconnect,
+    reactFlowNodes,
   });
 
   // Drag handlers

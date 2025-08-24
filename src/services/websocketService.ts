@@ -283,6 +283,7 @@ class WebSocketService {
   }
 
   sendAddAttribute(update: AddAttributeUpdate): void {
+    console.log("???");
     this.sendMessage(DESTINATIONS.addAttribute, "ADD_ATTRIBUTE", update);
   }
 

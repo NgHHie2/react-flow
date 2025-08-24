@@ -1,5 +1,5 @@
 // src/hooks/useNodeHandlers.ts - Node action handlers
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { createFieldUpdate } from "../utils/schemaUtils";
 
 interface UseNodeHandlersProps {
@@ -11,6 +11,7 @@ interface UseNodeHandlersProps {
   sendDeleteAttribute: any;
   sendForeignKeyConnect: any;
   sendForeignKeyDisconnect: any;
+  reactFlowNodes: any;
 }
 
 export const useNodeHandlers = ({
@@ -22,8 +23,13 @@ export const useNodeHandlers = ({
   sendDeleteAttribute,
   sendForeignKeyConnect,
   sendForeignKeyDisconnect,
+  reactFlowNodes,
 }: UseNodeHandlersProps) => {
   const reactFlowNodesRef = useRef<any[]>([]);
+
+  useEffect(() => {
+    reactFlowNodesRef.current = reactFlowNodes;
+  }, [reactFlowNodes]);
 
   // Field update handler
   const handleFieldUpdate = useCallback(
@@ -157,9 +163,12 @@ export const useNodeHandlers = ({
 
       // Use current nodes from ref
       const currentNodes = reactFlowNodesRef.current;
+      console.log(currentNodes);
+      console.log(modelName);
       const node = currentNodes.find((n: any) => n.id === modelName);
+      console.log(node);
       if (!node) return;
-
+      console.log("???");
       const modelId = node.data.id;
 
       sendAddAttribute({
