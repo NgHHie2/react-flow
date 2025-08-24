@@ -7,12 +7,14 @@ import {
   Edge,
   Connection,
   addEdge,
+  MarkerType,
 } from "reactflow";
 import { useSchemaData } from "./useSchemaData";
 import { useWebSocket } from "./useWebSocket";
 import { useWebSocketHandlers } from "./useWebSocketHandlers";
 import { useNodeHandlers } from "./useNodeHandlers";
 import { useDragHandlers } from "./useDragHandlers";
+import { calculateOptimalHandlePositions } from "../utils/handlePositioning";
 
 export const useSchemaVisualizer = () => {
   const {
@@ -127,7 +129,6 @@ export const useSchemaVisualizer = () => {
 
         // Extract raw model data for allModels prop
         const rawModelsData = nodes.map((node) => {
-          // Ensure we're getting the actual model data
           const modelData = node.data || node;
           console.log("🔍 Raw model data for", modelData.name, ":", modelData);
           return modelData;
@@ -141,7 +142,7 @@ export const useSchemaVisualizer = () => {
             position: currentPosition,
             data: {
               ...node.data,
-              allModels: rawModelsData, // Pass clean model data
+              allModels: rawModelsData,
               onFieldUpdate: handleFieldUpdate,
               onToggleKeyType: handleToggleKeyType,
               onAddAttribute: handleAddAttribute,
@@ -169,11 +170,71 @@ export const useSchemaVisualizer = () => {
     handleForeignKeyDisconnect,
   ]);
 
-  // Update edges when data changes
+  // Update edges when data changes - CREATE edges from model connections
   useEffect(() => {
-    console.log("🔄 Syncing edges, count:", edges.length);
-    setReactFlowEdges(edges);
-  }, [edges, setReactFlowEdges]);
+    console.log("🔄 Creating edges from model connections...");
+
+    if (reactFlowNodes.length === 0) {
+      setReactFlowEdges([]);
+      return;
+    }
+
+    const nodeMap = new Map(reactFlowNodes.map((node) => [node.id, node]));
+    const newEdges: Edge[] = [];
+
+    // Create edges from attribute connections
+    reactFlowNodes.forEach((node) => {
+      node.data.attributes?.forEach((attribute: any) => {
+        if (attribute.connection) {
+          const connection = attribute.connection;
+          const sourceNode = nodeMap.get(node.id);
+          const targetNode = nodeMap.get(connection.targetModelName);
+
+          if (!sourceNode || !targetNode) {
+            console.warn(
+              `Node not found for connection: ${node.id} -> ${connection.targetModelName}`
+            );
+            return;
+          }
+
+          // Calculate optimal handle positions
+          const handlePositions = calculateOptimalHandlePositions(
+            sourceNode,
+            targetNode,
+            attribute.name,
+            connection.targetAttributeName
+          );
+
+          const edgeId = `${node.id}-${attribute.name}-${connection.targetModelName}`;
+
+          newEdges.push({
+            id: edgeId,
+            source: node.id,
+            target: connection.targetModelName,
+            sourceHandle: handlePositions.sourceHandleId,
+            targetHandle: handlePositions.targetHandleId,
+            animated: connection.isAnimated || true,
+            type: "smoothstep",
+            pathOptions: {
+              borderRadius: 30, // Đây mới là cách đúng cho smoothstep
+              offset: 50, // Khoảng cách từ node
+            },
+            style: {
+              strokeWidth: 2,
+            },
+            label: connection.foreignKeyName,
+            labelBgStyle: {
+              fill: "rgba(255, 255, 255, 0.8)",
+              fillOpacity: 0.8,
+            },
+          });
+        }
+      });
+    });
+
+    console.log(`🔗 Created ${newEdges.length} edges from connections`);
+    setReactFlowEdges(newEdges);
+  }, [reactFlowNodes, setReactFlowEdges]);
 
   return {
     // Data state

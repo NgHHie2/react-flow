@@ -83,12 +83,6 @@ export const ForeignKeyTargetSelector: React.FC<
         return;
       }
 
-      // Skip current model
-      if (model.name === currentModelName) {
-        console.log(`🔍 Skipping current model: ${model.name}`);
-        return;
-      }
-
       console.log(
         `🔍 Processing model: ${model.name} with ${model.attributes.length} attributes`
       );
