@@ -1,4 +1,4 @@
-// src/services/websocketService.ts
+// src/services/websocketService.ts - Updated with FK methods
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 
@@ -12,6 +12,8 @@ import {
   ToggleForeignKeyUpdate,
   AddAttributeUpdate,
   DeleteAttributeUpdate,
+  ForeignKeyConnectionUpdate,
+  ForeignKeyDisconnectUpdate,
 } from "../types/websocket.types";
 
 // Constants
@@ -286,6 +288,22 @@ class WebSocketService {
 
   sendDeleteAttribute(update: DeleteAttributeUpdate): void {
     this.sendMessage(DESTINATIONS.deleteAttribute, "DELETE_ATTRIBUTE", update);
+  }
+
+  sendForeignKeyConnect(update: ForeignKeyConnectionUpdate): void {
+    this.sendMessage(
+      DESTINATIONS.connectForeignKey,
+      "FOREIGN_KEY_CONNECT",
+      update
+    );
+  }
+
+  sendForeignKeyDisconnect(update: ForeignKeyDisconnectUpdate): void {
+    this.sendMessage(
+      DESTINATIONS.disconnectForeignKey,
+      "FOREIGN_KEY_DISCONNECT",
+      update
+    );
   }
 
   // Utility methods

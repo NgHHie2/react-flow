@@ -12,3 +12,4 @@ export { InstructionsPanel } from "./InstructionsPanel";
 export { SchemaInfoPanel } from "./SchemaInfoPanel";
 export { ConnectionStatus } from "./ConnectionStatus";
 export { ReactFlowCanvas } from "./ReactFlowCanvas";
+export { ForeignKeyTargetSelector } from "./ForeignKeyTargetSelector";

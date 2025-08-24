@@ -1,4 +1,4 @@
-// src/SchemaVisualizer/ModelNode.tsx
+// src/SchemaVisualizer/ModelNode.tsx - Updated with FK handlers
 import React from "react";
 import { Box } from "@chakra-ui/react";
 import { NodeProps } from "reactflow";
@@ -8,6 +8,7 @@ import { ModelFooter } from "../components/ModelFooter";
 import { FieldComponent } from "../components/FieldComponent";
 
 interface ModelNodeData extends Model {
+  allModels?: Model[];
   onFieldUpdate?: (
     fieldId: number,
     fieldName: string,
@@ -20,6 +21,13 @@ interface ModelNodeData extends Model {
   ) => void;
   onAddAttribute?: (modelName: string) => void;
   onDeleteAttribute?: (modelName: string, attributeId: number) => void;
+  onForeignKeyTargetSelect?: (
+    attributeId: number,
+    targetModelName: string,
+    targetAttributeName: string,
+    targetAttributeId: number
+  ) => void;
+  onForeignKeyDisconnect?: (attributeId: number) => void;
 }
 
 export default function ModelNode({ data, id }: NodeProps<ModelNodeData>) {
@@ -59,6 +67,28 @@ export default function ModelNode({ data, id }: NodeProps<ModelNodeData>) {
     }
   };
 
+  const handleForeignKeyTargetSelect = (
+    attributeId: number,
+    targetModelName: string,
+    targetAttributeName: string,
+    targetAttributeId: number
+  ) => {
+    if (data.onForeignKeyTargetSelect) {
+      data.onForeignKeyTargetSelect(
+        attributeId,
+        targetModelName,
+        targetAttributeName,
+        targetAttributeId
+      );
+    }
+  };
+
+  const handleForeignKeyDisconnect = (attributeId: number) => {
+    if (data.onForeignKeyDisconnect) {
+      data.onForeignKeyDisconnect(attributeId);
+    }
+  };
+
   // Sort attributes by order
   const sortedAttributes = [...data.attributes].sort(
     (a, b) => a.attributeOrder - b.attributeOrder
@@ -91,10 +121,13 @@ export default function ModelNode({ data, id }: NodeProps<ModelNodeData>) {
             attribute={attribute}
             modelName={data.name}
             fieldIndex={index}
+            allModels={data.allModels || []}
             onFieldNameUpdate={handleFieldNameUpdate}
             onFieldTypeUpdate={handleFieldTypeUpdate}
             onToggleKeyType={handleToggleKeyType}
             onDeleteAttribute={handleDeleteAttribute}
+            onForeignKeyTargetSelect={handleForeignKeyTargetSelect}
+            onForeignKeyDisconnect={handleForeignKeyDisconnect}
           />
         ))}
       </Box>

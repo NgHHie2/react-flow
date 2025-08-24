@@ -1,4 +1,4 @@
-// src/constants/websocket.constants.ts
+// src/constants/websocket.constants.ts - Updated with FK constants
 import { WebSocketConfig } from "../types/websocket.types";
 
 // WebSocket Configuration
@@ -17,6 +17,8 @@ export const MESSAGE_TYPES = {
   TOGGLE_FOREIGN_KEY: "TOGGLE_FOREIGN_KEY",
   ADD_ATTRIBUTE: "ADD_ATTRIBUTE",
   DELETE_ATTRIBUTE: "DELETE_ATTRIBUTE",
+  FOREIGN_KEY_CONNECT: "FOREIGN_KEY_CONNECT",
+  FOREIGN_KEY_DISCONNECT: "FOREIGN_KEY_DISCONNECT",
   ERROR: "ERROR",
 } as const;
 
@@ -28,6 +30,8 @@ export const DESTINATIONS = {
   toggleForeignKey: "/app/toggleForeignKey",
   addAttribute: "/app/addAttribute",
   deleteAttribute: "/app/deleteAttribute",
+  connectForeignKey: "/app/connectForeignKey",
+  disconnectForeignKey: "/app/disconnectForeignKey",
 } as const;
 
 // Subscription Topics

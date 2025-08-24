@@ -1,15 +1,17 @@
-// src/components/FieldComponent.tsx - Improved toggle logic
+// src/components/FieldComponent.tsx - With FK target selection
 import React, { useState } from "react";
 import { Box, Flex, IconButton, Tooltip } from "@chakra-ui/react";
 import { Handle, Position } from "reactflow";
 import { EditableField } from "./EditableField";
-import { Attribute } from "../SchemaVisualizer/SchemaVisualizer.types";
+import { ForeignKeyTargetSelector } from "./ForeignKeyTargetSelector";
+import { Attribute, Model } from "../SchemaVisualizer/SchemaVisualizer.types";
 import { X } from "lucide-react";
 
 interface FieldComponentProps {
   attribute: Attribute;
   modelName: string;
   fieldIndex: number;
+  allModels: Model[];
   onFieldNameUpdate: (fieldIndex: number, newName: string) => void;
   onFieldTypeUpdate: (fieldIndex: number, newType: string) => void;
   onToggleKeyType: (
@@ -17,6 +19,13 @@ interface FieldComponentProps {
     newKeyType: "NORMAL" | "PRIMARY" | "FOREIGN"
   ) => void;
   onDeleteAttribute: (attributeId: number) => void;
+  onForeignKeyTargetSelect: (
+    attributeId: number,
+    targetModelName: string,
+    targetAttributeName: string,
+    targetAttributeId: number
+  ) => void;
+  onForeignKeyDisconnect: (attributeId: number) => void;
 }
 
 const ROW_HEIGHT = 32;
@@ -27,19 +36,18 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
   attribute,
   modelName,
   fieldIndex,
+  allModels,
   onFieldNameUpdate,
   onFieldTypeUpdate,
   onToggleKeyType,
   onDeleteAttribute,
+  onForeignKeyTargetSelect,
+  onForeignKeyDisconnect,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const isPK = attribute.isPrimaryKey;
   const isFK = attribute.isForeignKey;
   const hasConnection = !!attribute.connection;
-
-  // Tạo unique handle IDs
-  const sourceHandleId = `${modelName}-${attribute.name}-source`;
-  const targetHandleId = `${modelName}-${attribute.name}-target`;
 
   // Determine current key type
   const getCurrentKeyType = (): KeyType => {
@@ -95,7 +103,6 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    console.log(attribute);
     onDeleteAttribute(attribute.id);
   };
 
@@ -109,6 +116,23 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
       `Toggling key type for ${attribute.name}: ${currentType} -> ${nextType}`
     );
     onToggleKeyType(fieldIndex, nextType);
+  };
+
+  const handleForeignKeyTargetSelect = (
+    targetModelName: string,
+    targetAttributeName: string,
+    targetAttributeId: number
+  ) => {
+    onForeignKeyTargetSelect(
+      attribute.id,
+      targetModelName,
+      targetAttributeName,
+      targetAttributeId
+    );
+  };
+
+  const handleForeignKeyDisconnect = () => {
+    onForeignKeyDisconnect(attribute.id);
   };
 
   const createHandles = () => {
@@ -212,24 +236,8 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
         _hover={{ bg: "#4A5568" }}
         position="relative"
       >
-        {/* Left Handle - Always visible for connections going out */}
-        {/* <Handle
-          id={sourceHandleId}
-          position={Position.Left}
-          type="source"
-          style={{
-            left: "-5px",
-            top: "50%",
-            transform: "translateY(-50%)",
-            backgroundColor: hasConnection ? "#4A90E2" : "#6B7280",
-            width: "8px",
-            height: "8px",
-            border: "2px solid white",
-            borderRadius: "50%",
-            zIndex: "1",
-          }}
-        /> */}
         {createHandles()}
+
         {/* Field Icon */}
         <Box width="20px" mr={2} ml={2} display="flex" justifyContent="center">
           {getFieldIcon() && (
@@ -314,49 +322,54 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
           </Box>
         )}
 
-        {/* Right Handle - Always visible for connections coming in */}
-        {/* <Handle
-          id={targetHandleId}
-          position={Position.Right}
-          type="target"
-          style={{
-            right: "-5px",
-            top: "50%",
-            transform: "translateY(-50%)",
-            backgroundColor: isPK ? "#FFD700" : "#6B7280",
-            width: "8px",
-            height: "8px",
-            border: "2px solid white",
-            borderRadius: "50%",
-          }}
-        /> */}
+        {/* Connection indicator */}
+        {hasConnection && (
+          <Box
+            position="absolute"
+            right="12px"
+            top="2px"
+            width="6px"
+            height="6px"
+            bg={attribute.connection?.strokeColor || "#4A90E2"}
+            borderRadius="50%"
+            title={`Connected to ${attribute.connection?.targetModelName}.${attribute.connection?.targetAttributeName}`}
+          />
+        )}
+
+        {/* Key Type Indicator Bar */}
+        {(isPK || isFK) && (
+          <Box
+            position="absolute"
+            left="0"
+            top="0"
+            width="3px"
+            height="100%"
+            bg={isPK ? "#FFD700" : "#87CEEB"}
+            borderRadius="0 2px 2px 0"
+          />
+        )}
       </Flex>
 
-      {/* Connection indicator */}
-      {hasConnection && (
-        <Box
-          position="absolute"
-          right="12px"
-          top="2px"
-          width="6px"
-          height="6px"
-          bg={attribute.connection?.strokeColor || "#4A90E2"}
-          borderRadius="50%"
-          title={`Connected to ${attribute.connection?.targetModelName}.${attribute.connection?.targetAttributeName}`}
-        />
-      )}
-
-      {/* Key Type Indicator Bar */}
-      {(isPK || isFK) && (
-        <Box
-          position="absolute"
-          left="0"
-          top="0"
-          width="3px"
-          height="100%"
-          bg={isPK ? "#FFD700" : "#87CEEB"}
-          borderRadius="0 2px 2px 0"
-        />
+      {/* Foreign Key Target Selector - Show ONLY for actual FK fields */}
+      {isFK && !isPK && (
+        <Box bg="#1A1A1A" borderBottom="1px solid #4A5568" px={2} py={1}>
+          <ForeignKeyTargetSelector
+            currentModelName={modelName}
+            currentAttributeId={attribute.id}
+            currentConnection={
+              attribute.connection
+                ? {
+                    targetModelName: attribute.connection.targetModelName,
+                    targetAttributeName:
+                      attribute.connection.targetAttributeName,
+                  }
+                : undefined
+            }
+            allModels={allModels || []} // Ensure it's always an array
+            onTargetSelect={handleForeignKeyTargetSelect}
+            onDisconnect={handleForeignKeyDisconnect}
+          />
+        </Box>
       )}
     </Box>
   );

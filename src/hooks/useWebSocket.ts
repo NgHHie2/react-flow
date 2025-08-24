@@ -1,4 +1,4 @@
-// src/hooks/useWebSocket.ts - Updated with filtering
+// src/hooks/useWebSocket.ts - Updated with FK handlers
 import { useEffect, useState, useCallback } from "react";
 import { useToast } from "@chakra-ui/react";
 import { websocketService } from "../services/websocketService";
@@ -9,6 +9,8 @@ import {
   ToggleForeignKeyUpdate,
   AddAttributeUpdate,
   DeleteAttributeUpdate,
+  ForeignKeyConnectionUpdate,
+  ForeignKeyDisconnectUpdate,
 } from "../types/websocket.types";
 
 interface UseWebSocketProps {
@@ -18,6 +20,8 @@ interface UseWebSocketProps {
   onToggleForeignKey: (data: ToggleForeignKeyUpdate) => void;
   onAddAttribute: (data: AddAttributeUpdate) => void;
   onDeleteAttribute: (data: DeleteAttributeUpdate) => void;
+  onForeignKeyConnect: (data: ForeignKeyConnectionUpdate) => void;
+  onForeignKeyDisconnect: (data: ForeignKeyDisconnectUpdate) => void;
 }
 
 export const useWebSocket = ({
@@ -27,6 +31,8 @@ export const useWebSocket = ({
   onToggleForeignKey,
   onAddAttribute,
   onDeleteAttribute,
+  onForeignKeyConnect,
+  onForeignKeyDisconnect,
 }: UseWebSocketProps) => {
   const [isConnected, setIsConnected] = useState(false);
   const toast = useToast();
@@ -91,6 +97,14 @@ export const useWebSocket = ({
       onDeleteAttribute: (data) => {
         console.log("➖ Received delete attribute from other client:", data);
         onDeleteAttribute(data);
+      },
+      onForeignKeyConnect: (data) => {
+        console.log("🔗 Received FK connect from other client:", data);
+        onForeignKeyConnect(data);
+      },
+      onForeignKeyDisconnect: (data) => {
+        console.log("🔓 Received FK disconnect from other client:", data);
+        onForeignKeyDisconnect(data);
       },
       onError: handleWebSocketError,
       onConnect: handleConnect,
@@ -162,6 +176,32 @@ export const useWebSocket = ({
     }
   }, []);
 
+  const sendForeignKeyConnect = useCallback(
+    (update: ForeignKeyConnectionUpdate) => {
+      if (websocketService.isConnected()) {
+        console.log(
+          "📤 Sending FK connect (will be filtered for this client):",
+          update
+        );
+        websocketService.sendForeignKeyConnect(update);
+      }
+    },
+    []
+  );
+
+  const sendForeignKeyDisconnect = useCallback(
+    (update: ForeignKeyDisconnectUpdate) => {
+      if (websocketService.isConnected()) {
+        console.log(
+          "📤 Sending FK disconnect (will be filtered for this client):",
+          update
+        );
+        websocketService.sendForeignKeyDisconnect(update);
+      }
+    },
+    []
+  );
+
   return {
     isConnected,
     sendNodePositionUpdate,
@@ -170,5 +210,7 @@ export const useWebSocket = ({
     sendToggleForeignKey,
     sendAddAttribute,
     sendDeleteAttribute,
+    sendForeignKeyConnect,
+    sendForeignKeyDisconnect,
   };
 };

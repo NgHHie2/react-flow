@@ -1,4 +1,4 @@
-// src/types/websocket.types.ts
+// src/types/websocket.types.ts - Updated with FK types
 export interface BaseUpdate {
   sessionId?: string;
   messageId?: string;
@@ -43,6 +43,18 @@ export interface DeleteAttributeUpdate extends BaseUpdate {
   attributeId: number;
 }
 
+export interface ForeignKeyConnectionUpdate extends BaseUpdate {
+  attributeId: number;
+  targetModelName: string;
+  targetAttributeName: string;
+  targetAttributeId: number;
+  foreignKeyName: string;
+}
+
+export interface ForeignKeyDisconnectUpdate extends BaseUpdate {
+  attributeId: number;
+}
+
 export interface WebSocketResponse<T> {
   type: string;
   data: T;
@@ -59,6 +71,8 @@ export interface MessageHandler {
   onToggleForeignKey?: (data: ToggleForeignKeyUpdate) => void;
   onAddAttribute?: (data: AddAttributeUpdate) => void;
   onDeleteAttribute?: (data: DeleteAttributeUpdate) => void;
+  onForeignKeyConnect?: (data: ForeignKeyConnectionUpdate) => void;
+  onForeignKeyDisconnect?: (data: ForeignKeyDisconnectUpdate) => void;
   onError?: (error: string) => void;
   onConnect?: () => void;
   onDisconnect?: () => void;

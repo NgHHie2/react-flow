@@ -1,4 +1,4 @@
-// src/utils/websocket.utils.ts
+// src/utils/websocket.utils.ts - Updated with FK message routing
 import { WebSocketResponse, MessageHandler } from "../types/websocket.types";
 import { MESSAGE_TYPES, FILTER_CONFIG } from "../constants/websocket.constants";
 
@@ -25,12 +25,6 @@ class MessageTracker {
     setTimeout(() => {
       this.sentMessages.delete(messageId);
     }, FILTER_CONFIG.messageTrackingTTL);
-
-    // Prevent memory leak
-    // if (this.sentMessages.size > FILTER_CONFIG.maxTrackedMessages) {
-    //   const firstItem = this.sentMessages.values().next().value;
-    //   this.sentMessages.delete(firstItem);
-    // }
   }
 
   /**
@@ -124,6 +118,8 @@ export const routeMessage = <T>(
     [MESSAGE_TYPES.TOGGLE_FOREIGN_KEY]: handlers.onToggleForeignKey,
     [MESSAGE_TYPES.ADD_ATTRIBUTE]: handlers.onAddAttribute,
     [MESSAGE_TYPES.DELETE_ATTRIBUTE]: handlers.onDeleteAttribute,
+    [MESSAGE_TYPES.FOREIGN_KEY_CONNECT]: handlers.onForeignKeyConnect,
+    [MESSAGE_TYPES.FOREIGN_KEY_DISCONNECT]: handlers.onForeignKeyDisconnect,
     [MESSAGE_TYPES.ERROR]: handlers.onError,
   };
 
