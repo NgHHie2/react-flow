@@ -190,25 +190,47 @@ export const useSchemaVisualizer = () => {
   // Field update handler - will NOT receive updates from this client
   const handleFieldUpdate = useCallback(
     (attributeId: number, attributeName: string, attributeType: string) => {
-      console.log(
-        "📤 Sending field update (will be filtered for this client):",
-        {
-          attributeId,
-          attributeName,
-          attributeType,
-        }
-      );
-      const currentNodes = reactFlowNodesRef.current;
-      const fieldUpdate = createFieldUpdate(
-        currentNodes,
+      console.log("📤 Sending field update:", {
         attributeId,
         attributeName,
-        attributeType
-      );
+        attributeType,
+      });
 
-      if (fieldUpdate && window.sendFieldUpdate) {
-        window.sendFieldUpdate(fieldUpdate);
-      }
+      // Update ReactFlow nodes trực tiếp
+      setReactFlowNodes((currentNodes) => {
+        return currentNodes.map((node) => {
+          const hasAttribute = node.data.attributes.some(
+            (attr: any) => attr.id === attributeId
+          );
+          if (!hasAttribute) return node;
+
+          const updatedAttributes = node.data.attributes.map((attr: any) => {
+            if (attr.id === attributeId) {
+              return { ...attr, name: attributeName, dataType: attributeType };
+            }
+            return attr;
+          });
+
+          // Send WebSocket update
+          const fieldUpdate = createFieldUpdate(
+            currentNodes,
+            attributeId,
+            attributeName,
+            attributeType
+          );
+          if (fieldUpdate && window.sendFieldUpdate) {
+            window.sendFieldUpdate(fieldUpdate);
+          }
+
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              attributes: updatedAttributes,
+            },
+          };
+        });
+      });
     },
     []
   );
@@ -227,48 +249,60 @@ export const useSchemaVisualizer = () => {
         keyType,
       });
 
-      // Lấy modelId từ node data
-      const currentNodes = reactFlowNodesRef.current;
-      const node = currentNodes.find((n) => n.id === modelName);
-      if (!node) {
-        console.error("Node not found:", modelName);
-        return;
-      }
+      // Update ReactFlow nodes trực tiếp - KHÔNG qua nodes state
+      setReactFlowNodes((currentNodes) => {
+        return currentNodes.map((node) => {
+          if (node.id !== modelName) return node;
 
-      const modelId = node.data.id; // 🔥 Khai báo modelId
+          const modelId = node.data.id;
 
-      // OPTIMISTIC UPDATE - Update UI ngay lập tức
-      if (keyType === "PRIMARY") {
-        togglePrimaryKey(modelName, attributeId); // Update local state
-        if (window.sendTogglePrimaryKey) {
-          window.sendTogglePrimaryKey({ modelName, modelId, attributeId });
-        }
-      } else if (keyType === "FOREIGN") {
-        toggleForeignKey(modelName, attributeId); // Update local state
-        if (window.sendToggleForeignKey) {
-          window.sendToggleForeignKey({ modelName, modelId, attributeId });
-        }
-      } else {
-        // NORMAL - turn off current key
-        const attribute = node.data.attributes.find(
-          (attr: any) => attr.id === attributeId
-        );
-        if (attribute?.isPrimaryKey) {
-          togglePrimaryKey(modelName, attributeId);
-          if (window.sendTogglePrimaryKey) {
-            window.sendTogglePrimaryKey({ modelName, modelId, attributeId });
+          // Update attributes trong node.data
+          const updatedAttributes = node.data.attributes.map((attr: any) => {
+            if (attr.id !== attributeId) return attr;
+
+            // Apply key type change
+            if (keyType === "PRIMARY") {
+              return { ...attr, isPrimaryKey: true, isForeignKey: false };
+            } else if (keyType === "FOREIGN") {
+              return { ...attr, isPrimaryKey: false, isForeignKey: true };
+            } else {
+              return { ...attr, isPrimaryKey: false, isForeignKey: false };
+            }
+          });
+
+          // Send WebSocket update
+          if (
+            keyType === "PRIMARY" ||
+            (keyType === "NORMAL" &&
+              node.data.attributes.find((attr: any) => attr.id === attributeId)
+                ?.isPrimaryKey)
+          ) {
+            if (window.sendTogglePrimaryKey) {
+              window.sendTogglePrimaryKey({ modelName, modelId, attributeId });
+            }
+          } else if (
+            keyType === "FOREIGN" ||
+            (keyType === "NORMAL" &&
+              node.data.attributes.find((attr: any) => attr.id === attributeId)
+                ?.isForeignKey)
+          ) {
+            if (window.sendToggleForeignKey) {
+              window.sendToggleForeignKey({ modelName, modelId, attributeId });
+            }
           }
-        } else if (attribute?.isForeignKey) {
-          toggleForeignKey(modelName, attributeId);
-          if (window.sendToggleForeignKey) {
-            window.sendToggleForeignKey({ modelName, modelId, attributeId });
-          }
-        }
-      }
+
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              attributes: updatedAttributes,
+            },
+          };
+        });
+      });
     },
-    [togglePrimaryKey, toggleForeignKey]
+    []
   );
-
   // Add attribute handler - will NOT receive updates from this client
   const handleAddAttribute = useCallback((modelName: string) => {
     console.log(
@@ -444,17 +478,32 @@ export const useSchemaVisualizer = () => {
   useEffect(() => {
     console.log("🔄 Syncing nodes, count:", nodes.length);
     if (nodes.length > 0) {
-      const nodesWithCallbacks = nodes.map((node) => ({
-        ...node,
-        data: {
-          ...node.data,
-          onFieldUpdate: handleFieldUpdate,
-          onToggleKeyType: handleToggleKeyType,
-          onAddAttribute: handleAddAttribute,
-          onDeleteAttribute: handleDeleteAttribute,
-        },
-      }));
-      setReactFlowNodes(nodesWithCallbacks);
+      setReactFlowNodes((currentNodes) => {
+        // Tạo map của current positions để preserve vị trí hiện tại
+        const positionMap = new Map();
+        currentNodes.forEach((node) => {
+          positionMap.set(node.id, node.position);
+        });
+
+        const nodesWithCallbacks = nodes.map((node) => {
+          // Giữ nguyên vị trí hiện tại nếu node đã tồn tại
+          const currentPosition = positionMap.get(node.id) || node.position;
+
+          return {
+            ...node,
+            position: currentPosition, // Sử dụng vị trí hiện tại thay vì vị trí từ API
+            data: {
+              ...node.data,
+              onFieldUpdate: handleFieldUpdate,
+              onToggleKeyType: handleToggleKeyType,
+              onAddAttribute: handleAddAttribute,
+              onDeleteAttribute: handleDeleteAttribute,
+            },
+          };
+        });
+
+        return nodesWithCallbacks;
+      });
     } else {
       setReactFlowNodes([]);
     }
