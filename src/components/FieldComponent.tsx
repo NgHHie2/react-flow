@@ -111,6 +111,90 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
     onToggleKeyType(fieldIndex, nextType);
   };
 
+  const createHandles = () => {
+    const baseStyle = {
+      width: "8px",
+      height: "8px",
+      border: "2px solid white",
+      borderRadius: "50%",
+      opacity: 0.6,
+    };
+
+    const activeStyle = {
+      ...baseStyle,
+      opacity: 1,
+      backgroundColor: hasConnection ? "#1770d6ff" : "#6B7280",
+    };
+
+    const pkStyle = {
+      ...baseStyle,
+      opacity: isPK ? 1 : 0.6,
+      backgroundColor: isPK ? "#FFD700" : "#6B7280",
+    };
+
+    const baseHandleId = `${modelName}-${attribute.name}`;
+
+    return (
+      <>
+        {/* Left Handles */}
+        <Handle
+          id={`${baseHandleId}-left`}
+          position={Position.Left}
+          type="source"
+          style={{
+            ...activeStyle,
+            position: "absolute",
+            left: "-5px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 1,
+          }}
+        />
+        <Handle
+          id={`${baseHandleId}-left-target`}
+          position={Position.Left}
+          type="target"
+          style={{
+            ...pkStyle,
+            position: "absolute",
+            left: "-5px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 1,
+          }}
+        />
+
+        {/* Right Handles */}
+        <Handle
+          id={`${baseHandleId}-right`}
+          position={Position.Right}
+          type="source"
+          style={{
+            ...activeStyle,
+            position: "absolute",
+            right: "-5px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 1,
+          }}
+        />
+        <Handle
+          id={`${baseHandleId}-right-target`}
+          position={Position.Right}
+          type="target"
+          style={{
+            ...pkStyle,
+            position: "absolute",
+            right: "-5px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 1,
+          }}
+        />
+      </>
+    );
+  };
+
   return (
     <Box
       position="relative"
@@ -129,13 +213,12 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
         position="relative"
       >
         {/* Left Handle - Always visible for connections going out */}
-        <Handle
+        {/* <Handle
           id={sourceHandleId}
           position={Position.Left}
           type="source"
           style={{
-            position: "absolute",
-            left: "-6px",
+            left: "-5px",
             top: "50%",
             transform: "translateY(-50%)",
             backgroundColor: hasConnection ? "#4A90E2" : "#6B7280",
@@ -143,10 +226,10 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
             height: "8px",
             border: "2px solid white",
             borderRadius: "50%",
-            opacity: hasConnection ? 1 : 0.6,
+            zIndex: "1",
           }}
-        />
-
+        /> */}
+        {createHandles()}
         {/* Field Icon */}
         <Box width="20px" mr={2} ml={2} display="flex" justifyContent="center">
           {getFieldIcon() && (
@@ -232,13 +315,12 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
         )}
 
         {/* Right Handle - Always visible for connections coming in */}
-        <Handle
+        {/* <Handle
           id={targetHandleId}
           position={Position.Right}
           type="target"
           style={{
-            position: "absolute",
-            right: "-6px",
+            right: "-5px",
             top: "50%",
             transform: "translateY(-50%)",
             backgroundColor: isPK ? "#FFD700" : "#6B7280",
@@ -246,9 +328,8 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
             height: "8px",
             border: "2px solid white",
             borderRadius: "50%",
-            opacity: isPK ? 1 : 0.6,
           }}
-        />
+        /> */}
       </Flex>
 
       {/* Connection indicator */}

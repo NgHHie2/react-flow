@@ -66,21 +66,19 @@ export default function ModelNode({ data, id }: NodeProps<ModelNodeData>) {
 
   return (
     <Box
-      borderRadius={`${data.borderRadius || 8}px`}
+      borderRadius="8px"
       width="280px" // Fixed width
       minWidth="280px"
       maxWidth="280px"
-      bg={data.backgroundColor || "#f1f5f9"}
-      border={`${data.borderWidth || 2}px solid ${
-        data.borderColor || "#e2e8f0"
-      }`}
+      bg={"#f1f5f9"}
+      border={"2px solid #e2e8f0"}
       boxShadow="0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)"
       _hover={{
         boxShadow:
           "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
       }}
       transition="all 0.2s ease-in-out"
-      overflow="hidden" // Prevent content overflow
+      overflow="visible"
     >
       {/* Model Header */}
       <ModelHeader model={data} />

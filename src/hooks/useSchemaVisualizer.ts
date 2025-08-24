@@ -1,5 +1,5 @@
 // src/hooks/useSchemaVisualizer.ts - Updated with new WebSocket filtering
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useRef, useEffect, useMemo } from "react";
 import {
   useNodesState,
   useEdgesState,
@@ -14,6 +14,11 @@ import {
   createNodePositionUpdate,
   createFieldUpdate,
 } from "../utils/schemaUtils";
+import {
+  useAutoHandlePositioning,
+  calculateOptimalHandlePositions,
+  createReactFlowEdge,
+} from "../utils/handlePositioning";
 
 // Global variable to store functions
 declare global {
@@ -209,50 +214,59 @@ export const useSchemaVisualizer = () => {
   );
 
   // Toggle key type handler - will NOT receive updates from this client
+  // Trong useSchemaVisualizer.tsx
   const handleToggleKeyType = useCallback(
     (
       modelName: string,
       attributeId: number,
       keyType: "NORMAL" | "PRIMARY" | "FOREIGN"
     ) => {
-      console.log(
-        "📤 Sending toggle key type (will be filtered for this client):",
-        {
-          modelName,
-          attributeId,
-          keyType,
-        }
-      );
+      console.log("📤 Sending toggle key type:", {
+        modelName,
+        attributeId,
+        keyType,
+      });
 
+      // Lấy modelId từ node data
       const currentNodes = reactFlowNodesRef.current;
       const node = currentNodes.find((n) => n.id === modelName);
-      if (!node) return;
+      if (!node) {
+        console.error("Node not found:", modelName);
+        return;
+      }
 
-      const modelId = node.data.id;
+      const modelId = node.data.id; // 🔥 Khai báo modelId
 
+      // OPTIMISTIC UPDATE - Update UI ngay lập tức
       if (keyType === "PRIMARY") {
+        togglePrimaryKey(modelName, attributeId); // Update local state
         if (window.sendTogglePrimaryKey) {
           window.sendTogglePrimaryKey({ modelName, modelId, attributeId });
         }
       } else if (keyType === "FOREIGN") {
+        toggleForeignKey(modelName, attributeId); // Update local state
         if (window.sendToggleForeignKey) {
           window.sendToggleForeignKey({ modelName, modelId, attributeId });
         }
       } else {
-        // NORMAL - turn off current key status
+        // NORMAL - turn off current key
         const attribute = node.data.attributes.find(
           (attr: any) => attr.id === attributeId
         );
-        if (attribute) {
-          if (attribute.isPrimaryKey && window.sendTogglePrimaryKey) {
+        if (attribute?.isPrimaryKey) {
+          togglePrimaryKey(modelName, attributeId);
+          if (window.sendTogglePrimaryKey) {
             window.sendTogglePrimaryKey({ modelName, modelId, attributeId });
-          } else if (attribute.isForeignKey && window.sendToggleForeignKey) {
+          }
+        } else if (attribute?.isForeignKey) {
+          toggleForeignKey(modelName, attributeId);
+          if (window.sendToggleForeignKey) {
             window.sendToggleForeignKey({ modelName, modelId, attributeId });
           }
         }
       }
     },
-    []
+    [togglePrimaryKey, toggleForeignKey]
   );
 
   // Add attribute handler - will NOT receive updates from this client
@@ -454,10 +468,76 @@ export const useSchemaVisualizer = () => {
   ]);
 
   // Update edges when data changes
+  const optimizedConnections = useAutoHandlePositioning(reactFlowNodes, edges);
   useEffect(() => {
-    console.log("🔄 Syncing edges, count:", edges.length);
-    setReactFlowEdges(edges);
-  }, [edges, setReactFlowEdges]);
+    console.log("🔄 Syncing edges with auto handles, count:", edges.length);
+
+    if (edges.length === 0) {
+      setReactFlowEdges([]);
+      return;
+    }
+
+    const nodeMap = new Map(reactFlowNodes.map((node) => [node.id, node]));
+
+    const newEdges = edges.map((edge) => {
+      // Tìm source và target node
+      const sourceNode = nodeMap.get(edge.source);
+      const targetNode = nodeMap.get(edge.target);
+
+      if (!sourceNode || !targetNode) {
+        console.warn(
+          `Node not found for edge: ${edge.source} -> ${edge.target}`
+        );
+        return edge; // Keep original if nodes not found
+      }
+
+      // Extract field names từ handle IDs hoặc sử dụng default
+      let sourceFieldName = "field";
+      let targetFieldName = "field";
+
+      // Nếu có sourceHandle, extract field name
+      if (edge.sourceHandle) {
+        const parts = edge.sourceHandle.split("-");
+        if (parts.length >= 2) {
+          sourceFieldName = parts[1];
+        }
+      }
+
+      // Nếu có targetHandle, extract field name
+      if (edge.targetHandle) {
+        const parts = edge.targetHandle.split("-");
+        if (parts.length >= 2) {
+          targetFieldName = parts[1];
+        }
+      }
+
+      // Tính toán optimal handle positions
+      const handlePositions = calculateOptimalHandlePositions(
+        sourceNode,
+        targetNode,
+        sourceFieldName,
+        targetFieldName
+      );
+
+      return {
+        ...edge,
+        type: "smoothstep",
+        pathOptions: {
+          borderRadius: 50, // Đây mới là cách đúng cho smoothstep
+          offset: 30, // Khoảng cách từ node
+        },
+        sourceHandle: handlePositions.sourceHandleId,
+        targetHandle: handlePositions.targetHandleId,
+      };
+    });
+
+    setReactFlowEdges(newEdges);
+  }, [
+    edges,
+    reactFlowNodes,
+    setReactFlowEdges,
+    calculateOptimalHandlePositions,
+  ]);
 
   // Cleanup
   useEffect(() => {
@@ -494,5 +574,7 @@ export const useSchemaVisualizer = () => {
     handleRefresh,
     handleReset,
     handleInitialize,
+
+    optimizedConnections,
   };
 };

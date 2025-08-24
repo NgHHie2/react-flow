@@ -33,6 +33,7 @@ export const ModelFooter: React.FC<ModelFooterProps> = ({
         color="rgba(255,255,255,0.7)"
         justifyContent="space-between"
         alignItems="center"
+        borderRadius="0 0 6px 6px"
         position="relative"
       >
         {/* Left side - Statistics */}
@@ -66,13 +67,6 @@ export const ModelFooter: React.FC<ModelFooterProps> = ({
           />
         </Tooltip>
       </Flex>
-
-      {/* Bottom border */}
-      <Box
-        height="2px"
-        bg={model.borderColor || "#4A5568"}
-        borderRadius="0 0 8px 8px"
-      />
     </Box>
   );
 };

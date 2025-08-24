@@ -82,7 +82,7 @@ export const convertToReactFlowData = (
           target: connection.targetModelName,
           sourceHandle: sourceHandleId,
           targetHandle: targetHandleId,
-          animated: connection.isAnimated,
+          animated: true,
           style: {
             stroke: connection.strokeColor,
             strokeWidth: connection.strokeWidth,
@@ -90,7 +90,7 @@ export const convertToReactFlowData = (
 
           label: connection.foreignKeyName,
           labelStyle: {
-            fontSize: "10px",
+            fontSize: "8px",
             fontWeight: "bold",
             fill: connection.strokeColor,
           },
@@ -98,7 +98,6 @@ export const convertToReactFlowData = (
             fill: "rgba(255, 255, 255, 0.8)",
             fillOpacity: 0.8,
           },
-          type: "smoothstep",
         });
       }
     });
