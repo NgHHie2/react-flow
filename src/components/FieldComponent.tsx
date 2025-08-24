@@ -1,6 +1,6 @@
-// src/components/FieldComponent.tsx - With FK target selection
-import React, { useState } from "react";
-import { Box, Flex, IconButton, Tooltip } from "@chakra-ui/react";
+// src/components/FieldComponent.tsx - Complete version with handle click FK selector
+import React, { useEffect, useRef, useState } from "react";
+import { Box, Flex, IconButton, Tooltip, Button } from "@chakra-ui/react";
 import { Handle, Position } from "reactflow";
 import { EditableField } from "./EditableField";
 import { ForeignKeyTargetSelector } from "./ForeignKeyTargetSelector";
@@ -45,6 +45,27 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
   onForeignKeyDisconnect,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [showFKSelector, setShowFKSelector] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowFKSelector(false);
+      }
+    };
+
+    if (showFKSelector) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showFKSelector]);
   const isPK = attribute.isPrimaryKey;
   const isFK = attribute.isForeignKey;
   const hasConnection = !!attribute.connection;
@@ -118,7 +139,22 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
     onToggleKeyType(fieldIndex, nextType);
   };
 
-  const handleForeignKeyTargetSelect = (
+  // Handle click on handles - show FK selector for FK fields
+  const handleRightClick = (e: React.MouseEvent) => {
+    e.preventDefault(); // Ngăn context menu mặc định
+    e.stopPropagation();
+
+    // Chỉ hiện FK selector nếu field này là FK
+    if (isFK && !isPK) {
+      setShowFKSelector(!showFKSelector);
+    }
+  };
+
+  const handleFKSelectorClose = () => {
+    setShowFKSelector(false);
+  };
+
+  const handleForeignKeyTargetSelectLocal = (
     targetModelName: string,
     targetAttributeName: string,
     targetAttributeId: number
@@ -129,10 +165,12 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
       targetAttributeName,
       targetAttributeId
     );
+    setShowFKSelector(false); // Đóng selector sau khi chọn
   };
 
-  const handleForeignKeyDisconnect = () => {
+  const handleForeignKeyDisconnectLocal = () => {
     onForeignKeyDisconnect(attribute.id);
+    setShowFKSelector(false); // Đóng selector sau khi disconnect
   };
 
   const createHandles = () => {
@@ -146,8 +184,12 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
 
     const activeStyle = {
       ...baseStyle,
-      opacity: 1,
-      backgroundColor: hasConnection ? "#1770d6ff" : "#6B7280",
+      opacity: hasConnection ? 1 : isFK && !isPK ? 0.8 : 0.6,
+      backgroundColor: hasConnection
+        ? "#1770d6ff"
+        : isFK && !isPK
+        ? "#87CEEB"
+        : "#6B7280", // FK color khi chưa connect
     };
 
     const pkStyle = {
@@ -246,7 +288,8 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
                 color={getFieldColor()}
                 fontSize="12px"
                 cursor="pointer"
-                onClick={handleIconClick}
+                onClick={handleIconClick} // Left click - toggle key type
+                onContextMenu={isFK && !isPK ? handleRightClick : undefined} // Right click - FK selector
                 _hover={{ opacity: 0.7, transform: "scale(1.1)" }}
                 transition="all 0.2s ease-in-out"
                 display="flex"
@@ -254,6 +297,11 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
                 justifyContent="center"
                 width="16px"
                 height="16px"
+                title={
+                  isFK && !isPK
+                    ? "Left click: toggle type | Right click: FK selector"
+                    : getTooltipText()
+                }
               >
                 {getFieldIcon()}
               </Box>
@@ -278,7 +326,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
           )}
         </Box>
 
-        {/* Field Name - Fixed width */}
+        {/* Field Name */}
         <Box width="120px" mr={2}>
           <EditableField
             value={attribute.name}
@@ -290,7 +338,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
           />
         </Box>
 
-        {/* Field Type - Fixed width */}
+        {/* Field Type */}
         <Box width="100px" mr={2}>
           <EditableField
             value={attribute.dataType}
@@ -316,7 +364,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
                 minWidth="16px"
                 height="16px"
                 p={0}
-                _hover={{ bg: "red.600" }}
+                _hover={{ bg: "red.300" }}
               />
             </Tooltip>
           </Box>
@@ -350,9 +398,22 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
         )}
       </Flex>
 
-      {/* Foreign Key Target Selector - Show ONLY for actual FK fields */}
-      {isFK && !isPK && (
-        <Box bg="#1A1A1A" borderBottom="1px solid #4A5568" px={2} py={1}>
+      {/* FK Selector Popup - hiện khi showFKSelector = true */}
+      {showFKSelector && isFK && !isPK && (
+        <Box
+          ref={dropdownRef}
+          position="absolute"
+          top="100%"
+          left="0"
+          zIndex={1000}
+          bg="gray.800"
+          border="1px solid"
+          borderColor="gray.600"
+          borderRadius="md"
+          p={2}
+          minWidth="200px"
+          boxShadow="lg"
+        >
           <ForeignKeyTargetSelector
             currentModelName={modelName}
             currentAttributeId={attribute.id}
@@ -365,10 +426,23 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
                   }
                 : undefined
             }
-            allModels={allModels || []} // Ensure it's always an array
-            onTargetSelect={handleForeignKeyTargetSelect}
-            onDisconnect={handleForeignKeyDisconnect}
+            allModels={allModels || []}
+            onTargetSelect={handleForeignKeyTargetSelectLocal}
+            onDisconnect={handleForeignKeyDisconnectLocal}
+            inline={true}
           />
+
+          {/* Close button */}
+          <Button
+            size="xs"
+            position="absolute"
+            top="2px"
+            right="2px"
+            variant="ghost"
+            onClick={handleFKSelectorClose}
+          >
+            ✕
+          </Button>
         </Box>
       )}
     </Box>

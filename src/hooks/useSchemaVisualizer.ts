@@ -1,5 +1,5 @@
 // src/hooks/useSchemaVisualizer.ts - Fixed
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useRef, useEffect, useState, useMemo } from "react";
 import {
   useNodesState,
   useEdgesState,
@@ -118,21 +118,18 @@ export const useSchemaVisualizer = () => {
     }
   }, [fetchSchemaData]);
 
-  // Update nodes when data changes
+  const currentNodesRef = useRef<any[]>([]);
+
   useEffect(() => {
     console.log("🔄 Syncing nodes, count:", nodes.length);
     if (nodes.length > 0) {
       setReactFlowNodes((currentNodes) => {
+        // Cập nhật ref với current nodes
+        currentNodesRef.current = currentNodes;
+
         const positionMap = new Map();
         currentNodes.forEach((node) => {
           positionMap.set(node.id, node.position);
-        });
-
-        // Extract raw model data for allModels prop
-        const rawModelsData = nodes.map((node) => {
-          const modelData = node.data || node;
-          console.log("🔍 Raw model data for", modelData.name, ":", modelData);
-          return modelData;
         });
 
         const nodesWithCallbacks = nodes.map((node) => {
@@ -143,7 +140,16 @@ export const useSchemaVisualizer = () => {
             position: currentPosition,
             data: {
               ...node.data,
-              allModels: rawModelsData,
+              // Sử dụng ref để lấy fresh data
+              getAllModels: () => {
+                const models = currentNodesRef.current.map((n) => n.data);
+                console.log(
+                  "🔍 getAllModels called, returning:",
+                  models.length,
+                  "models"
+                );
+                return models;
+              },
               onFieldUpdate: handleFieldUpdate,
               onToggleKeyType: handleToggleKeyType,
               onAddAttribute: handleAddAttribute,
@@ -154,7 +160,7 @@ export const useSchemaVisualizer = () => {
           };
         });
 
-        console.log("🔄 Updated nodes with callbacks and allModels");
+        console.log("🔄 Updated nodes with getAllModels function");
         return nodesWithCallbacks;
       });
     } else {
@@ -170,6 +176,10 @@ export const useSchemaVisualizer = () => {
     handleForeignKeyTargetSelect,
     handleForeignKeyDisconnect,
   ]);
+
+  useEffect(() => {
+    currentNodesRef.current = reactFlowNodes;
+  }, [reactFlowNodes]);
 
   // Update edges when data changes - CREATE edges from model connections
   useEffect(() => {

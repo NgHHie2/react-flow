@@ -78,7 +78,7 @@ export const ReactFlowCanvas: React.FC<ReactFlowCanvasProps> = ({
         gap={20}
       />
 
-      <Controls
+      {/* <Controls
         showZoom={true}
         showFitView={true}
         showInteractive={true}
@@ -99,7 +99,7 @@ export const ReactFlowCanvas: React.FC<ReactFlowCanvasProps> = ({
           backgroundColor: "rgba(0,0,0,0.8)",
           border: "1px solid #4A5568",
         }}
-      />
+      /> */}
     </ReactFlow>
   );
 };

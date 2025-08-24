@@ -94,7 +94,7 @@ export const useNodeHandlers = ({
       });
 
       setReactFlowNodes((currentNodes: any) => {
-        return currentNodes.map((node: any) => {
+        const updatedNodes = currentNodes.map((node: any) => {
           if (node.id !== modelName) return node;
 
           const modelId = node.data.id;
@@ -148,9 +148,17 @@ export const useNodeHandlers = ({
             data: {
               ...node.data,
               attributes: updatedAttributes,
+              // CẬP NHẬT allModels với attributes mới
+              allModels: currentNodes.map((n: any) => ({
+                ...n.data,
+                attributes:
+                  n.id === modelName ? updatedAttributes : n.data.attributes,
+              })),
             },
           };
         });
+
+        return updatedNodes;
       });
     },
     [setReactFlowNodes, sendTogglePrimaryKey, sendToggleForeignKey]
@@ -159,58 +167,99 @@ export const useNodeHandlers = ({
   // Add attribute handler
   const handleAddAttribute = useCallback(
     (modelName: string) => {
-      console.log("📤 Sending add attribute:", { modelName });
+      console.log("📤 Adding attribute to:", { modelName });
 
-      // Use current nodes from ref
-      const currentNodes = reactFlowNodesRef.current;
-      console.log(currentNodes);
-      console.log(modelName);
-      const node = currentNodes.find((n: any) => n.id === modelName);
-      console.log(node);
-      if (!node) return;
-      console.log("???");
-      const modelId = node.data.id;
+      // CẬP NHẬT LOCAL STATE NGAY LẬP TỨC
+      setReactFlowNodes((currentNodes: any) => {
+        const tempId = Date.now(); // Tạo temp ID
 
-      sendAddAttribute({
-        modelName,
-        modelId,
-        attributeName: "new_field",
-        dataType: "VARCHAR(255)",
+        const updatedNodes = currentNodes.map((node: any) => {
+          if (node.id !== modelName) return node;
+
+          const newAttribute = {
+            id: tempId,
+            name: "new_field",
+            dataType: "VARCHAR(255)",
+            isNullable: true,
+            isPrimaryKey: false,
+            isForeignKey: false,
+            attributeOrder: node.data.attributes.length,
+            isTemporary: true, // Đánh dấu là temp
+          };
+
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              attributes: [...node.data.attributes, newAttribute],
+              allModels: currentNodes.map((n: any) => ({
+                ...n.data,
+                attributes:
+                  n.id === modelName
+                    ? [...n.data.attributes, newAttribute]
+                    : n.data.attributes,
+              })),
+            },
+          };
+        });
+
+        // Gửi WebSocket sau khi đã cập nhật UI
+        const node = currentNodes.find((n: any) => n.id === modelName);
+        if (node) {
+          const modelId = node.data.id;
+          sendAddAttribute({
+            modelName,
+            modelId,
+            attributeName: "new_field",
+            dataType: "VARCHAR(255)",
+          });
+        }
+
+        return updatedNodes;
       });
     },
-    [sendAddAttribute]
+    [setReactFlowNodes, sendAddAttribute]
   );
 
   // Delete attribute handler
   const handleDeleteAttribute = useCallback(
     (modelName: string, attributeId: number) => {
-      console.log("📤 Sending delete attribute:", { modelName, attributeId });
+      console.log("📤 Deleting attribute:", { modelName, attributeId });
 
-      const currentNodes = reactFlowNodesRef.current;
-      const node = currentNodes.find((n: any) => n.id === modelName);
-      if (!node) {
-        console.error("Node not found for modelName:", modelName);
-        return;
-      }
+      // CẬP NHẬT LOCAL STATE NGAY LẬP TỨC
+      setReactFlowNodes((currentNodes: any) => {
+        const updatedNodes = currentNodes.map((node: any) => {
+          if (node.id !== modelName) return node;
 
-      const modelId = node.data.id;
-      const attribute = node.data.attributes.find(
-        (attr: any) => attr.id === attributeId
-      );
+          const filteredAttributes = node.data.attributes.filter(
+            (attr: any) => attr.id !== attributeId
+          );
 
-      if (!attribute) {
-        console.error(
-          "Attribute not found:",
-          attributeId,
-          "in model:",
-          modelName
-        );
-        return;
-      }
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              attributes: filteredAttributes,
+              allModels: currentNodes.map((n: any) => ({
+                ...n.data,
+                attributes:
+                  n.id === modelName ? filteredAttributes : n.data.attributes,
+              })),
+            },
+          };
+        });
 
-      sendDeleteAttribute({ modelName, modelId, attributeId });
+        // Gửi WebSocket sau khi đã cập nhật UI
+        const node = currentNodes.find((n: any) => n.id === modelName);
+        if (node) {
+          const modelId = node.data.id;
+          sendDeleteAttribute({ modelName, modelId, attributeId });
+        }
+
+        return updatedNodes;
+      });
     },
-    [sendDeleteAttribute]
+    [setReactFlowNodes, sendDeleteAttribute]
   );
 
   // Foreign key connection handlers

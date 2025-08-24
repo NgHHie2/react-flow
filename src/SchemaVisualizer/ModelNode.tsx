@@ -8,7 +8,8 @@ import { ModelFooter } from "../components/ModelFooter";
 import { FieldComponent } from "../components/FieldComponent";
 
 interface ModelNodeData extends Model {
-  allModels?: Model[];
+  getAllModels?: () => Model[]; // Thêm function
+  allModels?: Model[]; // Giữ để backward compatibility
   onFieldUpdate?: (
     fieldId: number,
     fieldName: string,
@@ -94,10 +95,18 @@ export default function ModelNode({ data, id }: NodeProps<ModelNodeData>) {
     (a, b) => a.attributeOrder - b.attributeOrder
   );
 
+  // Lấy allModels từ function hoặc prop
+  const getAllModels = () => {
+    if (data.getAllModels) {
+      return data.getAllModels();
+    }
+    return data.allModels || [];
+  };
+
   return (
     <Box
       borderRadius="8px"
-      width="280px" // Fixed width
+      width="280px"
       minWidth="280px"
       maxWidth="280px"
       bg={"#f1f5f9"}
@@ -121,7 +130,7 @@ export default function ModelNode({ data, id }: NodeProps<ModelNodeData>) {
             attribute={attribute}
             modelName={data.name}
             fieldIndex={index}
-            allModels={data.allModels || []}
+            allModels={getAllModels()} // Gọi function để lấy fresh data
             onFieldNameUpdate={handleFieldNameUpdate}
             onFieldTypeUpdate={handleFieldTypeUpdate}
             onToggleKeyType={handleToggleKeyType}

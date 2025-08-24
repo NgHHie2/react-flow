@@ -38,14 +38,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           >
             Refresh
           </Button>
-          <Button
+          {/* <Button
             size="sm"
             colorScheme="green"
             onClick={onReset}
             isLoading={loading}
           >
             Reset Data
-          </Button>
+          </Button> */}
         </HStack>
       </VStack>
     </Box>

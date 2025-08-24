@@ -1,5 +1,5 @@
-// src/components/ForeignKeyTargetSelector.tsx - Fixed
-import React, { useState, useEffect } from "react";
+// src/components/ForeignKeyTargetSelector.tsx - Complete fixed version
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Box,
   Popover,
@@ -35,6 +35,7 @@ interface ForeignKeyTargetSelectorProps {
     targetAttributeId: number
   ) => void;
   onDisconnect: () => void;
+  inline?: boolean;
 }
 
 export const ForeignKeyTargetSelector: React.FC<
@@ -46,17 +47,43 @@ export const ForeignKeyTargetSelector: React.FC<
   allModels,
   onTargetSelect,
   onDisconnect,
+  inline = false,
 }) => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [primaryKeyOptions, setPrimaryKeyOptions] = useState<
     PrimaryKeyOption[]
   >([]);
 
-  // Collect all primary keys from all models except current model
+  // Tạo key duy nhất từ PK data để detect thay đổi
+  const pkDataKey: string = useMemo(() => {
+    if (!allModels) return "no-models";
+
+    const pkData = allModels
+      .map(
+        (model) =>
+          model.attributes
+            ?.filter((attr: any) => attr.isPrimaryKey)
+            ?.map((attr: any) => `${model.name}.${attr.name}.${attr.id}`)
+            ?.join("|") || ""
+      )
+      .filter(Boolean)
+      .join("::");
+
+    console.log("🔑 PK Data Key:", pkData);
+    return pkData;
+  }, [allModels]);
+
+  // Collect all primary keys from all models
   useEffect(() => {
+    console.log("🔍 ForeignKeyTargetSelector - DEBUGGING allModels:", {
+      allModels,
+      isArray: Array.isArray(allModels),
+      length: allModels?.length,
+      firstModel: allModels?.[0],
+    });
+
     const options: PrimaryKeyOption[] = [];
 
-    // Check if allModels exists and is array
     if (!allModels || !Array.isArray(allModels)) {
       console.warn(
         "ForeignKeyTargetSelector - allModels not available:",
@@ -67,12 +94,19 @@ export const ForeignKeyTargetSelector: React.FC<
     }
 
     console.log(
-      "🔍 ForeignKeyTargetSelector - Processing models:",
-      allModels.length
+      "🔍 ForeignKeyTargetSelector - Recalculating PKs, key:",
+      pkDataKey
     );
 
-    allModels.forEach((model) => {
-      // Check if this is a valid model object with required properties
+    allModels.forEach((model, modelIndex) => {
+      console.log(`🔍 Model ${modelIndex}:`, {
+        model,
+        hasName: !!model?.name,
+        hasAttributes: !!model?.attributes,
+        attributesLength: model?.attributes?.length,
+        isAttributesArray: Array.isArray(model?.attributes),
+      });
+
       if (
         !model ||
         !model.name ||
@@ -87,7 +121,14 @@ export const ForeignKeyTargetSelector: React.FC<
         `🔍 Processing model: ${model.name} with ${model.attributes.length} attributes`
       );
 
-      model.attributes.forEach((attr, index) => {
+      model.attributes.forEach((attr: any, index: number) => {
+        console.log(`  🔍 Attribute ${index}:`, {
+          attr,
+          name: attr?.name,
+          isPrimaryKey: attr?.isPrimaryKey,
+          id: attr?.id,
+        });
+
         if (!attr || typeof attr.isPrimaryKey !== "boolean") {
           console.warn(`🔍 Invalid attribute at index ${index}:`, attr);
           return;
@@ -108,18 +149,16 @@ export const ForeignKeyTargetSelector: React.FC<
 
     console.log("🎯 Final PK options:", options);
     setPrimaryKeyOptions(options);
-  }, [allModels, currentModelName]);
+  }, [pkDataKey, allModels]); // Depend on pkDataKey and allModels
 
   const handleTargetSelect = (option: PrimaryKeyOption) => {
     console.log("🔗 Selecting FK target:", option);
     onTargetSelect(option.modelName, option.attributeName, option.attributeId);
-    onClose();
   };
 
   const handleDisconnect = () => {
     console.log("🔓 Disconnecting FK");
     onDisconnect();
-    onClose();
   };
 
   const getCurrentTargetText = () => {
@@ -128,6 +167,78 @@ export const ForeignKeyTargetSelector: React.FC<
     }
     return "Select target...";
   };
+
+  if (inline) {
+    // Inline mode - không dùng Popover, render trực tiếp
+    return (
+      <VStack spacing={1} align="stretch">
+        <Text fontWeight="bold" color="gray.200" fontSize="xs">
+          Select Primary Key Target ({primaryKeyOptions.length}):
+        </Text>
+
+        <Divider borderColor="gray.600" />
+
+        {primaryKeyOptions.length === 0 ? (
+          <Text color="gray.400" fontSize="xs">
+            No primary keys available
+          </Text>
+        ) : (
+          <VStack
+            spacing={1}
+            align="stretch"
+            maxHeight="200px"
+            overflowY="auto"
+          >
+            {primaryKeyOptions.map((option) => (
+              <Button
+                key={`${option.modelName}-${option.attributeId}`}
+                size="xs"
+                variant="ghost"
+                height="24px"
+                justifyContent="flex-start"
+                fontSize="xs"
+                color="white"
+                _hover={{ bg: "blue.600" }}
+                onClick={() => handleTargetSelect(option)}
+                isActive={
+                  currentConnection?.targetModelName === option.modelName &&
+                  currentConnection?.targetAttributeName ===
+                    option.attributeName
+                }
+                _active={{
+                  bg: "rgba(74, 144, 226, 0.2)", // Thay đổi này - từ mặc định sang màu xanh nhạt
+                  color: "blue.200", // Thêm dòng này
+                  borderColor: "blue.400", // Thêm dòng này
+                }}
+              >
+                <Text noOfLines={1}>
+                  🔑 {option.modelName}.{option.attributeName}
+                </Text>
+              </Button>
+            ))}
+          </VStack>
+        )}
+
+        {currentConnection && (
+          <>
+            <Divider borderColor="gray.600" />
+            <Button
+              size="xs"
+              variant="ghost"
+              height="24px"
+              justifyContent="flex-start"
+              fontSize="xs"
+              color="red.300"
+              _hover={{ bg: "red.600" }}
+              onClick={handleDisconnect}
+            >
+              🗑️ Remove connection
+            </Button>
+          </>
+        )}
+      </VStack>
+    );
+  }
 
   return (
     <Popover
@@ -168,33 +279,39 @@ export const ForeignKeyTargetSelector: React.FC<
         <PopoverBody p={2}>
           <VStack spacing={1} align="stretch">
             <Text fontWeight="bold" color="blue.300" fontSize="xs">
-              Select Primary Key Target:
+              Select Primary Key Target ({primaryKeyOptions.length}):
             </Text>
 
             <Divider borderColor="gray.600" />
 
-            {primaryKeyOptions.map((option) => (
-              <Button
-                key={`${option.modelName}-${option.attributeId}`}
-                size="xs"
-                variant="ghost"
-                height="24px"
-                justifyContent="flex-start"
-                fontSize="xs"
-                color="white"
-                _hover={{ bg: "blue.600" }}
-                onClick={() => handleTargetSelect(option)}
-                isActive={
-                  currentConnection?.targetModelName === option.modelName &&
-                  currentConnection?.targetAttributeName ===
-                    option.attributeName
-                }
-              >
-                <Text noOfLines={1}>
-                  🔑 {option.modelName}.{option.attributeName}
-                </Text>
-              </Button>
-            ))}
+            {primaryKeyOptions.length === 0 ? (
+              <Text color="gray.400" fontSize="xs">
+                No primary keys available
+              </Text>
+            ) : (
+              primaryKeyOptions.map((option) => (
+                <Button
+                  key={`${option.modelName}-${option.attributeId}`}
+                  size="xs"
+                  variant="ghost"
+                  height="24px"
+                  justifyContent="flex-start"
+                  fontSize="xs"
+                  color="white"
+                  _hover={{ bg: "gray.600" }}
+                  onClick={() => handleTargetSelect(option)}
+                  isActive={
+                    currentConnection?.targetModelName === option.modelName &&
+                    currentConnection?.targetAttributeName ===
+                      option.attributeName
+                  }
+                >
+                  <Text noOfLines={1}>
+                    🔑 {option.modelName}.{option.attributeName}
+                  </Text>
+                </Button>
+              ))
+            )}
 
             {currentConnection && (
               <>

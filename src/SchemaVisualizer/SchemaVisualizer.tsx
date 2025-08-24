@@ -70,13 +70,13 @@ export const SchemaVisualizer = () => {
   return (
     <Box height="100vh" width="100vw" bg="#1C1c1c" position="relative">
       {/* Schema Info Panel */}
-      {schemaInfo && (
+      {/* {schemaInfo && (
         <SchemaInfoPanel
           schemaInfo={schemaInfo}
           nodesCount={reactFlowNodes.length}
           edgesCount={reactFlowEdges.length}
         />
-      )}
+      )} */}
 
       {/* Control Panel */}
       <ControlPanel
@@ -87,7 +87,7 @@ export const SchemaVisualizer = () => {
       />
 
       {/* Connection Status */}
-      <ConnectionStatus isConnected={isConnected} />
+      {/* <ConnectionStatus isConnected={isConnected} /> */}
 
       {/* ReactFlow Canvas with Enhanced Drag Handling */}
       <ReactFlowCanvas
