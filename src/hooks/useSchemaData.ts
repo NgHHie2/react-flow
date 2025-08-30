@@ -1,4 +1,4 @@
-// src/hooks/useSchemaData.ts - Updated with attribute management
+// src/hooks/useSchemaData.ts - Fixed version with proper model name updates
 import { useState, useCallback } from "react";
 import { useToast } from "@chakra-ui/react";
 import { Node, Edge } from "reactflow";
@@ -67,6 +67,8 @@ export const useSchemaData = () => {
           node.id === nodeId ? { ...node, position: { x, y } } : node
         )
       );
+
+      console.log(`✅ Position updated locally for ${nodeId}: (${x}, ${y})`);
     },
     []
   );
@@ -119,10 +121,13 @@ export const useSchemaData = () => {
                       ? {
                           ...attr,
                           isPrimaryKey: !attr.isPrimaryKey,
-                          // If setting as PK, remove FK status
+                          // If setting as PK, remove FK status and connection
                           isForeignKey: !attr.isPrimaryKey
                             ? false
                             : attr.isForeignKey,
+                          connection: !attr.isPrimaryKey
+                            ? undefined
+                            : attr.connection,
                         }
                       : attr
                   ),
@@ -281,6 +286,7 @@ export const useSchemaData = () => {
     },
     [toast]
   );
+
   const addModel = useCallback(
     async (modelName: string, positionX: number, positionY: number) => {
       const tempId = Date.now();
@@ -334,22 +340,55 @@ export const useSchemaData = () => {
     [setNodes, toast]
   );
 
+  // ✅ FIXED: Properly update model name and all connections
   const updateModelName = useCallback(
     async (oldName: string, newName: string) => {
+      console.log(`📝 Updating model name: ${oldName} -> ${newName}`);
+
+      // Update the node itself
       setNodes((nds) =>
-        nds.map((node) =>
-          node.id === oldName
-            ? {
-                ...node,
-                id: newName,
-                data: {
-                  ...node.data,
-                  name: newName,
-                  nodeId: newName,
-                },
-              }
-            : node
-        )
+        nds.map((node) => {
+          if (node.id === oldName) {
+            // Update the node with the new name
+            return {
+              ...node,
+              id: newName,
+              data: {
+                ...node.data,
+                name: newName,
+                nodeId: newName,
+              },
+            };
+          }
+
+          // Update any connections that reference the old name
+          if (
+            node.data.attributes?.some(
+              (attr: any) => attr.connection?.targetModelName === oldName
+            )
+          ) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                attributes: node.data.attributes.map((attr: any) => {
+                  if (attr.connection?.targetModelName === oldName) {
+                    return {
+                      ...attr,
+                      connection: {
+                        ...attr.connection,
+                        targetModelName: newName,
+                      },
+                    };
+                  }
+                  return attr;
+                }),
+              },
+            };
+          }
+
+          return node;
+        })
       );
 
       // Update edges that reference this model
@@ -365,6 +404,8 @@ export const useSchemaData = () => {
           return updatedEdge;
         })
       );
+
+      console.log(`✅ Model name updated: ${oldName} -> ${newName}`);
     },
     [setNodes, setEdges]
   );

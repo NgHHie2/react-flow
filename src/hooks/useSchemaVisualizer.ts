@@ -1,4 +1,4 @@
-// src/hooks/useSchemaVisualizer.ts - Complete version with model operations
+// src/hooks/useSchemaVisualizer.ts - Balanced optimization version
 import { useCallback, useRef, useEffect, useState, useMemo } from "react";
 import {
   useNodesState,
@@ -7,7 +7,7 @@ import {
   Edge,
   Connection,
   addEdge,
-  MarkerType,
+  NodeChange,
 } from "reactflow";
 import { useSchemaData } from "./useSchemaData";
 import { useWebSocket } from "./useWebSocket";
@@ -15,6 +15,7 @@ import { useWebSocketHandlers } from "./useWebSocketHandlers";
 import { useNodeHandlers } from "./useNodeHandlers";
 import { useDragHandlers } from "./useDragHandlers";
 import { calculateOptimalHandlePositions } from "../utils/handlePositioning";
+import { Attribute } from "../SchemaVisualizer/SchemaVisualizer.types";
 
 export const useSchemaVisualizer = () => {
   const {
@@ -40,8 +41,9 @@ export const useSchemaVisualizer = () => {
   const [reactFlowEdges, setReactFlowEdges, onEdgesChange] = useEdgesState([]);
 
   const hasInitialized = useRef(false);
+  const currentNodesRef = useRef<any[]>([]);
 
-  // WebSocket handlers - bao gồm cả model handlers
+  // WebSocket handlers
   const websocketHandlers = useWebSocketHandlers({
     updateNodePosition,
     updateField,
@@ -55,7 +57,7 @@ export const useSchemaVisualizer = () => {
     setReactFlowNodes,
   });
 
-  // WebSocket connection - bao gồm cả model operations
+  // WebSocket connection
   const {
     isConnected,
     sendNodePositionUpdate,
@@ -71,7 +73,7 @@ export const useSchemaVisualizer = () => {
     sendDeleteModel,
   } = useWebSocket(websocketHandlers.current);
 
-  // Node action handlers (attributes)
+  // Node action handlers
   const {
     handleFieldUpdate,
     handleToggleKeyType,
@@ -103,7 +105,7 @@ export const useSchemaVisualizer = () => {
     [setReactFlowEdges]
   );
 
-  // Model operation handlers
+  // Model operation handlers - STABLE callbacks
   const handleAddModel = useCallback(() => {
     const timestamp = Date.now();
     const newModelName = `Table_${timestamp}`;
@@ -112,10 +114,8 @@ export const useSchemaVisualizer = () => {
 
     console.log("🆕 Adding new model:", { newModelName, positionX, positionY });
 
-    // Add to local state first (optimistic update)
     addModel(newModelName, positionX, positionY);
 
-    // Send WebSocket message if connected and schemaInfo is available
     if (isConnected && schemaInfo) {
       sendAddModel({
         modelName: newModelName,
@@ -131,21 +131,10 @@ export const useSchemaVisualizer = () => {
       if (oldName === newName) return;
 
       const node = reactFlowNodes.find((n) => n.id === oldName);
-      if (!node) {
-        console.warn("Node not found for name update:", oldName);
-        return;
-      }
+      if (!node) return;
 
-      console.log("📝 Updating model name:", {
-        oldName,
-        newName,
-        modelId: node.data.id,
-      });
-
-      // Update local state first
       updateModelName(oldName, newName);
 
-      // Send WebSocket message if connected
       if (isConnected) {
         sendUpdateModelName({
           modelId: node.data.id,
@@ -160,35 +149,26 @@ export const useSchemaVisualizer = () => {
   const handleDeleteModel = useCallback(
     (modelName: string) => {
       const node = reactFlowNodes.find((n) => n.id === modelName);
-      if (!node) {
-        console.warn("Node not found for deletion:", modelName);
-        return;
-      }
+      if (!node) return;
 
-      // Check if model has connections (prevent deletion)
-      const hasOutgoingConnections = node.data.attributes?.some(
-        (attr: any) => attr.connection
-      );
-      const hasIncomingConnections = reactFlowNodes.some(
-        (otherNode: any) =>
-          otherNode.id !== modelName &&
-          otherNode.data.attributes?.some(
-            (attr: any) => attr.connection?.targetModelName === modelName
-          )
-      );
+      // Check connections
+      const hasConnections =
+        node.data.attributes?.some((attr: any) => attr.connection) ||
+        reactFlowNodes.some(
+          (otherNode: any) =>
+            otherNode.id !== modelName &&
+            otherNode.data.attributes?.some(
+              (attr: any) => attr.connection?.targetModelName === modelName
+            )
+        );
 
-      if (hasOutgoingConnections || hasIncomingConnections) {
+      if (hasConnections) {
         console.warn("Cannot delete model with connections:", modelName);
-        // You might want to show a toast here
         return;
       }
 
-      console.log("🗑️ Deleting model:", { modelName, modelId: node.data.id });
-
-      // Update local state first
       deleteModel(modelName);
 
-      // Send WebSocket message if connected
       if (isConnected) {
         sendDeleteModel({
           modelId: node.data.id,
@@ -201,193 +181,219 @@ export const useSchemaVisualizer = () => {
 
   // Basic action handlers
   const handleRefresh = useCallback(() => {
-    console.log("🔄 Refreshing data...");
     fetchSchemaData();
   }, [fetchSchemaData]);
 
   const handleReset = useCallback(() => {
-    console.log("🔄 Resetting data...");
     initializeData();
   }, [initializeData]);
 
   const handleInitialize = useCallback(() => {
-    console.log("🔄 Initializing data...");
     initializeData();
   }, [initializeData]);
 
   // Initialize data on first mount
   useEffect(() => {
     if (!hasInitialized.current) {
-      console.log("🚀 Loading initial data...");
       hasInitialized.current = true;
       fetchSchemaData();
     }
   }, [fetchSchemaData]);
 
-  // Keep reference to current nodes for callbacks
-  const currentNodesRef = useRef<any[]>([]);
-
-  // Wrap tất cả handlers với useCallback để stable
-  const stableHandleFieldUpdate = useCallback(handleFieldUpdate, [
-    handleFieldUpdate,
-  ]);
-  const stableHandleToggleKeyType = useCallback(handleToggleKeyType, [
-    handleToggleKeyType,
-  ]);
-  const stableHandleAddAttribute = useCallback(handleAddAttribute, [
-    handleAddAttribute,
-  ]);
-  const stableHandleDeleteAttribute = useCallback(handleDeleteAttribute, [
-    handleDeleteAttribute,
-  ]);
-  const stableHandleForeignKeyTargetSelect = useCallback(
-    handleForeignKeyTargetSelect,
-    [handleForeignKeyTargetSelect]
+  // ✅ FIX 1: Stable callbacks - but allow for updates when needed
+  const stableCallbacks = useMemo(
+    () => ({
+      getAllModels: () => currentNodesRef.current.map((n) => n.data),
+      onFieldUpdate: handleFieldUpdate,
+      onToggleKeyType: handleToggleKeyType,
+      onAddAttribute: handleAddAttribute,
+      onDeleteAttribute: handleDeleteAttribute,
+      onForeignKeyTargetSelect: handleForeignKeyTargetSelect,
+      onForeignKeyDisconnect: handleForeignKeyDisconnect,
+      onModelNameUpdate: handleModelNameUpdate,
+      onDeleteModel: handleDeleteModel,
+    }),
+    [
+      handleFieldUpdate,
+      handleToggleKeyType,
+      handleAddAttribute,
+      handleDeleteAttribute,
+      handleForeignKeyTargetSelect,
+      handleForeignKeyDisconnect,
+      handleModelNameUpdate,
+      handleDeleteModel,
+    ]
   );
-  const stableHandleForeignKeyDisconnect = useCallback(
-    handleForeignKeyDisconnect,
-    [handleForeignKeyDisconnect]
-  );
-  const stableHandleModelNameUpdate = useCallback(handleModelNameUpdate, [
-    handleModelNameUpdate,
-  ]);
-  const stableHandleDeleteModel = useCallback(handleDeleteModel, [
-    handleDeleteModel,
-  ]);
 
-  // Sync nodes from useSchemaData to ReactFlow nodes - CHỈ depend vào nodes
+  // ✅ FIX 2: Only sync when nodes actually change - use JSON for comparison
+  const nodesDataString = useMemo(() => {
+    return JSON.stringify(
+      nodes.map((node) => ({
+        id: node.id,
+        attributesCount: node.data.attributes?.length || 0,
+        attributesHash:
+          node.data.attributes
+            ?.map(
+              (attr: any) =>
+                `${attr.id}-${attr.name}-${attr.dataType}-${
+                  attr.isPrimaryKey
+                }-${attr.isForeignKey}-${
+                  attr.connection?.targetModelName || "none"
+                }`
+            )
+            .join("|") || "",
+      }))
+    );
+  }, [nodes]);
+
+  const lastNodesDataString = useRef<string>("");
+
   useEffect(() => {
-    console.log("🔄 Syncing nodes, count:", nodes.length);
-
     if (nodes.length === 0) {
       setReactFlowNodes([]);
+      lastNodesDataString.current = "";
       return;
     }
 
+    // Only sync if data actually changed
+    if (nodesDataString === lastNodesDataString.current) {
+      return;
+    }
+
+    console.log("🔄 Syncing nodes data - data changed");
+    lastNodesDataString.current = nodesDataString;
+
     setReactFlowNodes((currentNodes) => {
-      // Update ref with current nodes
       currentNodesRef.current = currentNodes;
 
-      // Preserve current positions
+      // Preserve positions for existing nodes
       const positionMap = new Map();
       currentNodes.forEach((node) => {
         positionMap.set(node.id, node.position);
       });
 
-      // Create nodes with stable callbacks
-      const nodesWithCallbacks = nodes.map((node) => {
-        const currentPosition = positionMap.get(node.id) || node.position;
-
-        return {
-          ...node,
-          position: currentPosition,
-          data: {
-            ...node.data,
-            // Inline stable callbacks - không depend vào useMemo
-            getAllModels: () => {
-              return currentNodesRef.current.map((n) => n.data);
-            },
-            onFieldUpdate: stableHandleFieldUpdate,
-            onToggleKeyType: stableHandleToggleKeyType,
-            onAddAttribute: stableHandleAddAttribute,
-            onDeleteAttribute: stableHandleDeleteAttribute,
-            onForeignKeyTargetSelect: stableHandleForeignKeyTargetSelect,
-            onForeignKeyDisconnect: stableHandleForeignKeyDisconnect,
-            onModelNameUpdate: stableHandleModelNameUpdate,
-            onDeleteModel: stableHandleDeleteModel,
-          },
-        };
-      });
-
-      return nodesWithCallbacks;
+      return nodes.map((node) => ({
+        ...node,
+        position: positionMap.get(node.id) || node.position,
+        data: {
+          ...node.data,
+          ...stableCallbacks,
+        },
+      }));
     });
-  }, [
-    nodes,
-    stableHandleFieldUpdate,
-    stableHandleToggleKeyType,
-    stableHandleAddAttribute,
-    stableHandleDeleteAttribute,
-    stableHandleForeignKeyTargetSelect,
-    stableHandleForeignKeyDisconnect,
-    stableHandleModelNameUpdate,
-    stableHandleDeleteModel,
-  ]); // CHỈ depend vào stable handlers
+  }, [nodesDataString, stableCallbacks]);
 
-  // Keep currentNodesRef updated khi reactFlowNodes thay đổi
+  // Keep ref updated
   useEffect(() => {
     currentNodesRef.current = reactFlowNodes;
   }, [reactFlowNodes]);
 
-  // Memoize edges data để tránh re-calculate liên tục
+  // ✅ FIX 3: Calculate edges properly - including on model name changes
   const edgesData = useMemo(() => {
     if (reactFlowNodes.length === 0) return [];
+
+    console.log("🔗 Calculating edges...");
 
     const nodeMap = new Map(reactFlowNodes.map((node) => [node.id, node]));
     const newEdges: Edge[] = [];
 
-    // Create edges from attribute connections
     reactFlowNodes.forEach((node) => {
-      node.data.attributes?.forEach((attribute: any) => {
-        if (attribute.connection) {
-          const connection = attribute.connection;
-          const sourceNode = nodeMap.get(node.id);
-          const targetNode = nodeMap.get(connection.targetModelName);
+      const attributes: Attribute[] = node.data.attributes || [];
+      attributes.forEach((attribute: Attribute) => {
+        if (!attribute.connection) return;
 
-          if (!sourceNode || !targetNode) {
-            return;
-          }
+        const connection = attribute.connection;
+        const sourceNode = nodeMap.get(node.id);
+        const targetNode = nodeMap.get(connection.targetModelName);
 
-          // Calculate optimal handle positions
-          const handlePositions = calculateOptimalHandlePositions(
-            sourceNode,
-            targetNode,
-            attribute.name,
-            connection.targetAttributeName
-          );
+        if (!sourceNode || !targetNode) return;
 
-          const edgeId = `${node.id}-${attribute.name}-${connection.targetModelName}`;
+        const handlePositions = calculateOptimalHandlePositions(
+          sourceNode,
+          targetNode,
+          attribute.name,
+          connection.targetAttributeName
+        );
 
-          newEdges.push({
-            id: edgeId,
-            source: node.id,
-            target: connection.targetModelName,
-            sourceHandle: handlePositions.sourceHandleId,
-            targetHandle: handlePositions.targetHandleId,
-            animated: connection.isAnimated || true,
-            type: "smoothstep",
-            pathOptions: {
-              borderRadius: 30,
-              offset: 50,
-            },
-            style: {
-              strokeWidth: 2,
-              stroke: connection.strokeColor || "#4A90E2",
-            },
-            label: connection.foreignKeyName,
-            labelStyle: {
-              fontSize: "10px",
-              fontWeight: "bold",
-              fill: connection.strokeColor || "#4A90E2",
-            },
-            labelBgStyle: {
-              fill: "rgba(255, 255, 255, 0.8)",
-              fillOpacity: 0.8,
-            },
-          });
-        }
+        const edgeId = `${node.id}-${attribute.name}-${connection.targetModelName}`;
+
+        newEdges.push({
+          id: edgeId,
+          source: node.id,
+          target: connection.targetModelName,
+          sourceHandle: handlePositions.sourceHandleId,
+          targetHandle: handlePositions.targetHandleId,
+          animated: connection.isAnimated || true,
+          type: "smoothstep",
+          pathOptions: {
+            borderRadius: 30,
+            offset: 50,
+          },
+          style: {
+            strokeWidth: 2,
+            stroke: connection.strokeColor || "#4A90E2",
+          },
+          label: connection.foreignKeyName,
+          labelStyle: {
+            fontSize: "10px",
+            fontWeight: "bold",
+            fill: connection.strokeColor || "#4A90E2",
+          },
+          labelBgStyle: {
+            fill: "rgba(255, 255, 255, 0.8)",
+            fillOpacity: 0.8,
+          },
+        });
       });
     });
 
     return newEdges;
-  }, [reactFlowNodes]);
+  }, [reactFlowNodes]); // Depend on full reactFlowNodes to catch all changes
 
-  // Update edges when edgesData changes
+  // ✅ FIX 4: Update edges when they change
   useEffect(() => {
-    if (JSON.stringify(reactFlowEdges) !== JSON.stringify(edgesData)) {
-      console.log(`🔗 Setting ${edgesData.length} edges`);
-      setReactFlowEdges(edgesData);
-    }
-  }, [edgesData, reactFlowEdges, setReactFlowEdges]);
+    console.log(`🔗 Setting ${edgesData.length} edges`);
+    setReactFlowEdges(edgesData);
+  }, [edgesData, setReactFlowEdges]);
+
+  // ✅ FIX 5: Enhanced onNodesChange to handle position updates properly
+  const enhancedOnNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      // Handle position changes separately
+      const positionChanges = changes.filter(
+        (change) => change.type === "position"
+      );
+      const otherChanges = changes.filter(
+        (change) => change.type !== "position"
+      );
+
+      // Apply non-position changes normally
+      if (otherChanges.length > 0) {
+        onNodesChange(otherChanges);
+      }
+
+      // Handle position changes
+      positionChanges.forEach((change) => {
+        if (change.type === "position" && change.position && !change.dragging) {
+          // Position change is finalized (not during drag)
+          const node = reactFlowNodes.find((n) => n.id === change.id);
+          if (node) {
+            console.log(
+              `📍 Position finalized for ${change.id}:`,
+              change.position
+            );
+            updateNodePosition(change.id, change.position.x, change.position.y);
+          }
+        }
+      });
+
+      // Apply position changes to local state
+      if (positionChanges.length > 0) {
+        onNodesChange(positionChanges);
+      }
+    },
+    [onNodesChange, reactFlowNodes, updateNodePosition]
+  );
 
   return {
     // Data state
@@ -398,7 +404,7 @@ export const useSchemaVisualizer = () => {
     // ReactFlow state
     reactFlowNodes,
     reactFlowEdges,
-    onNodesChange,
+    onNodesChange: enhancedOnNodesChange,
     onEdgesChange,
     onConnect,
 
@@ -410,12 +416,10 @@ export const useSchemaVisualizer = () => {
     // WebSocket state
     isConnected,
 
-    // Basic action handlers
+    // Action handlers
     handleRefresh,
     handleReset,
     handleInitialize,
-
-    // Model action handlers
     handleAddModel,
     handleModelNameUpdate,
     handleDeleteModel,
