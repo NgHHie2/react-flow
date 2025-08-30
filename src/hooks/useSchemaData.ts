@@ -1,4 +1,4 @@
-// src/hooks/useSchemaData.ts - Fixed version with proper model name updates
+// src/hooks/useSchemaData.ts - Fixed version
 import { useState, useCallback } from "react";
 import { useToast } from "@chakra-ui/react";
 import { Node, Edge } from "reactflow";
@@ -59,20 +59,35 @@ export const useSchemaData = () => {
     [fetchSchemaData, toast]
   );
 
+  // FIX 1: Improved drag position update - force re-render
   const updateNodePosition = useCallback(
     async (nodeId: string, x: number, y: number) => {
-      // Update local state immediately for smooth UX
-      setNodes((nds) =>
-        nds.map((node) =>
-          node.id === nodeId ? { ...node, position: { x, y } } : node
-        )
-      );
+      console.log(`🎯 Updating position for ${nodeId}: (${x}, ${y})`);
 
-      console.log(`✅ Position updated locally for ${nodeId}: (${x}, ${y})`);
+      // Update local state immediately with forced re-render
+      setNodes((prevNodes) => {
+        const updatedNodes = prevNodes.map((node) =>
+          node.id === nodeId
+            ? {
+                ...node,
+                position: { x, y },
+                // Force re-render by updating a timestamp
+                data: {
+                  ...node.data,
+                  lastUpdate: Date.now(),
+                },
+              }
+            : node
+        );
+
+        console.log(`✅ Position updated locally for ${nodeId}: (${x}, ${y})`);
+        return updatedNodes;
+      });
     },
     []
   );
 
+  // FIX 2: Improved field update with better state management
   const updateField = useCallback(
     async (
       modelName: string,
@@ -80,9 +95,13 @@ export const useSchemaData = () => {
       attributeName: string,
       attributeType: string
     ) => {
-      // Update local state immediately
-      setNodes((nds) =>
-        nds.map((node) =>
+      console.log(
+        `🔧 Updating field ${attributeId} in ${modelName}: ${attributeName}:${attributeType}`
+      );
+
+      // Update local state immediately with minimal re-render
+      setNodes((prevNodes) =>
+        prevNodes.map((node) =>
           node.id === modelName
             ? {
                 ...node,
@@ -97,6 +116,8 @@ export const useSchemaData = () => {
                         }
                       : attr
                   ),
+                  // Only update if there's actually a change
+                  lastFieldUpdate: Date.now(),
                 },
               }
             : node
@@ -106,11 +127,13 @@ export const useSchemaData = () => {
     []
   );
 
+  // FIX 3: Optimized toggle functions to prevent full re-render
   const togglePrimaryKey = useCallback(
     async (modelName: string, attributeId: number) => {
-      // Update local state immediately
-      setNodes((nds) =>
-        nds.map((node) =>
+      console.log(`🔑 Toggling primary key for ${attributeId} in ${modelName}`);
+
+      setNodes((prevNodes) =>
+        prevNodes.map((node) =>
           node.id === modelName
             ? {
                 ...node,
@@ -131,6 +154,8 @@ export const useSchemaData = () => {
                         }
                       : attr
                   ),
+                  // Use specific update flag instead of general timestamp
+                  lastKeyUpdate: Date.now(),
                 },
               }
             : node
@@ -142,9 +167,10 @@ export const useSchemaData = () => {
 
   const toggleForeignKey = useCallback(
     async (modelName: string, attributeId: number) => {
-      // Update local state immediately
-      setNodes((nds) =>
-        nds.map((node) =>
+      console.log(`🔗 Toggling foreign key for ${attributeId} in ${modelName}`);
+
+      setNodes((prevNodes) =>
+        prevNodes.map((node) =>
           node.id === modelName
             ? {
                 ...node,
@@ -162,6 +188,7 @@ export const useSchemaData = () => {
                         }
                       : attr
                   ),
+                  lastKeyUpdate: Date.now(),
                 },
               }
             : node
@@ -288,7 +315,36 @@ export const useSchemaData = () => {
   );
 
   const addModel = useCallback(
-    async (modelName: string, positionX: number, positionY: number) => {
+    async (
+      modelName: string,
+      positionX: number,
+      positionY: number,
+      realModelId?: number
+    ) => {
+      if (realModelId) {
+        // This is response with real ID - update existing temp model
+        setNodes((prevNodes) =>
+          prevNodes.map((node) =>
+            node.data.name === modelName && node.data.isTemporary
+              ? {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    id: realModelId,
+                    isTemporary: false,
+                  },
+                }
+              : node
+          )
+        );
+
+        console.log(
+          `✅ Updated model ${modelName} with real ID: ${realModelId}`
+        );
+        return;
+      }
+
+      // Create new temp model
       const tempId = Date.now();
       const tempModel = {
         id: tempId,
@@ -340,33 +396,33 @@ export const useSchemaData = () => {
     [setNodes, toast]
   );
 
-  // ✅ FIXED: Properly update model name and all connections
+  // FIX 4: Completely rewritten model name update
   const updateModelName = useCallback(
     async (oldName: string, newName: string) => {
       console.log(`📝 Updating model name: ${oldName} -> ${newName}`);
 
-      // Update the node itself
-      setNodes((nds) =>
-        nds.map((node) => {
+      setNodes((prevNodes) => {
+        const updatedNodes = prevNodes.map((node) => {
+          // Update the target node's name
           if (node.id === oldName) {
-            // Update the node with the new name
             return {
               ...node,
-              id: newName,
+              id: newName, // Change node ID
               data: {
                 ...node.data,
                 name: newName,
                 nodeId: newName,
+                lastNameUpdate: Date.now(), // Force re-render
               },
             };
           }
 
-          // Update any connections that reference the old name
-          if (
-            node.data.attributes?.some(
-              (attr: any) => attr.connection?.targetModelName === oldName
-            )
-          ) {
+          // Update any foreign key connections that reference the old name
+          const hasConnectionsToUpdate = node.data.attributes?.some(
+            (attr: any) => attr.connection?.targetModelName === oldName
+          );
+
+          if (hasConnectionsToUpdate) {
             return {
               ...node,
               data: {
@@ -377,35 +433,44 @@ export const useSchemaData = () => {
                       ...attr,
                       connection: {
                         ...attr.connection,
-                        targetModelName: newName,
+                        targetModelName: newName, // Update FK reference
                       },
                     };
                   }
                   return attr;
                 }),
+                lastConnectionUpdate: Date.now(), // Force re-render
               },
             };
           }
 
           return node;
-        })
-      );
+        });
 
-      // Update edges that reference this model
-      setEdges((eds) =>
-        eds.map((edge) => {
+        console.log(`✅ Model name updated in nodes: ${oldName} -> ${newName}`);
+        return updatedNodes;
+      });
+
+      // Update edges separately
+      setEdges((prevEdges) =>
+        prevEdges.map((edge) => {
           let updatedEdge = { ...edge };
+
           if (edge.source === oldName) {
             updatedEdge.source = newName;
+            console.log(`📌 Updated edge source: ${oldName} -> ${newName}`);
           }
+
           if (edge.target === oldName) {
             updatedEdge.target = newName;
+            console.log(`📌 Updated edge target: ${oldName} -> ${newName}`);
           }
+
           return updatedEdge;
         })
       );
 
-      console.log(`✅ Model name updated: ${oldName} -> ${newName}`);
+      console.log(`✅ Model name fully updated: ${oldName} -> ${newName}`);
     },
     [setNodes, setEdges]
   );

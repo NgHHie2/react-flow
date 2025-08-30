@@ -1,4 +1,4 @@
-// src/hooks/useSchemaVisualizer.ts - Balanced optimization version
+// src/hooks/useSchemaVisualizer.ts - Comprehensive fixes
 import { useCallback, useRef, useEffect, useState, useMemo } from "react";
 import {
   useNodesState,
@@ -42,6 +42,7 @@ export const useSchemaVisualizer = () => {
 
   const hasInitialized = useRef(false);
   const currentNodesRef = useRef<any[]>([]);
+  const isUpdatingFromWebSocketRef = useRef(false); // FIX 1: Add WebSocket update flag
 
   // WebSocket handlers
   const websocketHandlers = useWebSocketHandlers({
@@ -105,7 +106,7 @@ export const useSchemaVisualizer = () => {
     [setReactFlowEdges]
   );
 
-  // Model operation handlers - STABLE callbacks
+  // FIX 2: Stable model operation handlers
   const handleAddModel = useCallback(() => {
     const timestamp = Date.now();
     const newModelName = `Table_${timestamp}`;
@@ -126,22 +127,37 @@ export const useSchemaVisualizer = () => {
     }
   }, [addModel, sendAddModel, schemaInfo, isConnected]);
 
+  // FIX 3: Improved model name update handler
   const handleModelNameUpdate = useCallback(
     (oldName: string, newName: string) => {
-      if (oldName === newName) return;
+      if (oldName === newName || !newName.trim()) return;
 
+      const trimmedNewName = newName.trim();
       const node = reactFlowNodes.find((n) => n.id === oldName);
-      if (!node) return;
+      if (!node) {
+        console.warn(`⚠️ Node ${oldName} not found for name update`);
+        return;
+      }
 
-      updateModelName(oldName, newName);
+      console.log(`📝 Updating model name: ${oldName} -> ${trimmedNewName}`);
+
+      // Mark as WebSocket update to prevent echo
+      isUpdatingFromWebSocketRef.current = true;
+
+      updateModelName(oldName, trimmedNewName);
 
       if (isConnected) {
         sendUpdateModelName({
           modelId: node.data.id,
           oldModelName: oldName,
-          newModelName: newName,
+          newModelName: trimmedNewName,
         });
       }
+
+      // Reset flag after a short delay
+      setTimeout(() => {
+        isUpdatingFromWebSocketRef.current = false;
+      }, 100);
     },
     [reactFlowNodes, updateModelName, sendUpdateModelName, isConnected]
   );
@@ -200,7 +216,7 @@ export const useSchemaVisualizer = () => {
     }
   }, [fetchSchemaData]);
 
-  // ✅ FIX 1: Stable callbacks - but allow for updates when needed
+  // FIX 4: Ultra-stable callbacks with proper memoization
   const stableCallbacks = useMemo(
     () => ({
       getAllModels: () => currentNodesRef.current.map((n) => n.data),
@@ -225,48 +241,51 @@ export const useSchemaVisualizer = () => {
     ]
   );
 
-  // ✅ FIX 2: Only sync when nodes actually change - use JSON for comparison
-  const nodesDataString = useMemo(() => {
-    return JSON.stringify(
-      nodes.map((node) => ({
-        id: node.id,
-        attributesCount: node.data.attributes?.length || 0,
-        attributesHash:
-          node.data.attributes
-            ?.map(
-              (attr: any) =>
-                `${attr.id}-${attr.name}-${attr.dataType}-${
-                  attr.isPrimaryKey
-                }-${attr.isForeignKey}-${
-                  attr.connection?.targetModelName || "none"
-                }`
-            )
-            .join("|") || "",
-      }))
-    );
+  // FIX 5: Smarter node synchronization with change detection
+  const nodesFingerprint = useMemo(() => {
+    return nodes.map((node) => ({
+      id: node.id,
+      name: node.data.name,
+      attributesHash:
+        node.data.attributes
+          ?.map(
+            (attr: any) =>
+              `${attr.id}-${attr.name}-${attr.dataType}-${attr.isPrimaryKey}-${
+                attr.isForeignKey
+              }-${
+                attr.connection
+                  ? `${attr.connection.targetModelName}.${attr.connection.targetAttributeName}`
+                  : "none"
+              }`
+          )
+          .join("|") || "",
+      positionHash: `${node.position.x}-${node.position.y}`,
+    }));
   }, [nodes]);
 
-  const lastNodesDataString = useRef<string>("");
+  const lastFingerprintRef = useRef<string>("");
 
   useEffect(() => {
     if (nodes.length === 0) {
       setReactFlowNodes([]);
-      lastNodesDataString.current = "";
+      lastFingerprintRef.current = "";
       return;
     }
 
-    // Only sync if data actually changed
-    if (nodesDataString === lastNodesDataString.current) {
+    const currentFingerprint = JSON.stringify(nodesFingerprint);
+
+    // Only sync if fingerprint actually changed
+    if (currentFingerprint === lastFingerprintRef.current) {
       return;
     }
 
-    console.log("🔄 Syncing nodes data - data changed");
-    lastNodesDataString.current = nodesDataString;
+    console.log("🔄 Syncing nodes - fingerprint changed");
+    lastFingerprintRef.current = currentFingerprint;
 
     setReactFlowNodes((currentNodes) => {
       currentNodesRef.current = currentNodes;
 
-      // Preserve positions for existing nodes
+      // Preserve positions for existing nodes to prevent position conflicts
       const positionMap = new Map();
       currentNodes.forEach((node) => {
         positionMap.set(node.id, node.position);
@@ -278,21 +297,42 @@ export const useSchemaVisualizer = () => {
         data: {
           ...node.data,
           ...stableCallbacks,
+          // Add allModels to prevent stale closures
+          allModels: nodes.map((n) => n.data),
         },
       }));
     });
-  }, [nodesDataString, stableCallbacks]);
+  }, [nodesFingerprint, stableCallbacks, nodes]);
 
-  // Keep ref updated
+  // Keep currentNodesRef updated
   useEffect(() => {
     currentNodesRef.current = reactFlowNodes;
   }, [reactFlowNodes]);
 
-  // ✅ FIX 3: Calculate edges properly - including on model name changes
+  // FIX 6: Optimized edge calculation with better change detection
+  const edgesFingerprint = useMemo(() => {
+    if (reactFlowNodes.length === 0) return "empty";
+
+    const connections: string[] = [];
+
+    reactFlowNodes.forEach((node) => {
+      const attributes: Attribute[] = node.data.attributes || [];
+      attributes.forEach((attribute: Attribute) => {
+        if (attribute.connection) {
+          connections.push(
+            `${node.id}:${attribute.name}->${attribute.connection.targetModelName}:${attribute.connection.targetAttributeName}`
+          );
+        }
+      });
+    });
+
+    return connections.sort().join("|");
+  }, [reactFlowNodes]);
+
   const edgesData = useMemo(() => {
     if (reactFlowNodes.length === 0) return [];
 
-    console.log("🔗 Calculating edges...");
+    console.log("🔗 Calculating edges from fingerprint:", edgesFingerprint);
 
     const nodeMap = new Map(reactFlowNodes.map((node) => [node.id, node]));
     const newEdges: Edge[] = [];
@@ -306,60 +346,69 @@ export const useSchemaVisualizer = () => {
         const sourceNode = nodeMap.get(node.id);
         const targetNode = nodeMap.get(connection.targetModelName);
 
-        if (!sourceNode || !targetNode) return;
+        if (!sourceNode || !targetNode) {
+          console.warn(
+            `⚠️ Missing node for edge: ${node.id} -> ${connection.targetModelName}`
+          );
+          return;
+        }
 
-        const handlePositions = calculateOptimalHandlePositions(
-          sourceNode,
-          targetNode,
-          attribute.name,
-          connection.targetAttributeName
-        );
+        try {
+          const handlePositions = calculateOptimalHandlePositions(
+            sourceNode,
+            targetNode,
+            attribute.name,
+            connection.targetAttributeName
+          );
 
-        const edgeId = `${node.id}-${attribute.name}-${connection.targetModelName}`;
+          const edgeId = `${node.id}-${attribute.name}-${connection.targetModelName}`;
 
-        newEdges.push({
-          id: edgeId,
-          source: node.id,
-          target: connection.targetModelName,
-          sourceHandle: handlePositions.sourceHandleId,
-          targetHandle: handlePositions.targetHandleId,
-          animated: connection.isAnimated || true,
-          type: "smoothstep",
-          pathOptions: {
-            borderRadius: 30,
-            offset: 50,
-          },
-          style: {
-            strokeWidth: 2,
-            stroke: connection.strokeColor || "#4A90E2",
-          },
-          label: connection.foreignKeyName,
-          labelStyle: {
-            fontSize: "10px",
-            fontWeight: "bold",
-            fill: connection.strokeColor || "#4A90E2",
-          },
-          labelBgStyle: {
-            fill: "rgba(255, 255, 255, 0.8)",
-            fillOpacity: 0.8,
-          },
-        });
+          newEdges.push({
+            id: edgeId,
+            source: node.id,
+            target: connection.targetModelName,
+            sourceHandle: handlePositions.sourceHandleId,
+            targetHandle: handlePositions.targetHandleId,
+            animated: connection.isAnimated || true,
+            type: "smoothstep",
+            pathOptions: {
+              borderRadius: 30,
+              offset: 50,
+            },
+            style: {
+              strokeWidth: 2,
+              stroke: connection.strokeColor || "#4A90E2",
+            },
+            label: connection.foreignKeyName,
+            labelStyle: {
+              fontSize: "10px",
+              fontWeight: "bold",
+              fill: connection.strokeColor || "#4A90E2",
+            },
+            labelBgStyle: {
+              fill: "rgba(255, 255, 255, 0.8)",
+              fillOpacity: 0.8,
+            },
+          });
+        } catch (error) {
+          console.error("Error calculating handle positions:", error);
+        }
       });
     });
 
+    console.log(`🔗 Generated ${newEdges.length} edges`);
     return newEdges;
-  }, [reactFlowNodes]); // Depend on full reactFlowNodes to catch all changes
+  }, [edgesFingerprint, reactFlowNodes]);
 
-  // ✅ FIX 4: Update edges when they change
+  // Update edges when they change
   useEffect(() => {
-    console.log(`🔗 Setting ${edgesData.length} edges`);
     setReactFlowEdges(edgesData);
   }, [edgesData, setReactFlowEdges]);
 
-  // ✅ FIX 5: Enhanced onNodesChange to handle position updates properly
+  // FIX 7: Enhanced onNodesChange with proper position handling
   const enhancedOnNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      // Handle position changes separately
+      // Separate position changes from other changes
       const positionChanges = changes.filter(
         (change) => change.type === "position"
       );
@@ -367,17 +416,17 @@ export const useSchemaVisualizer = () => {
         (change) => change.type !== "position"
       );
 
-      // Apply non-position changes normally
+      // Apply non-position changes immediately
       if (otherChanges.length > 0) {
         onNodesChange(otherChanges);
       }
 
-      // Handle position changes
+      // Handle position changes with WebSocket consideration
       positionChanges.forEach((change) => {
         if (change.type === "position" && change.position && !change.dragging) {
           // Position change is finalized (not during drag)
           const node = reactFlowNodes.find((n) => n.id === change.id);
-          if (node) {
+          if (node && !isUpdatingFromWebSocketRef.current) {
             console.log(
               `📍 Position finalized for ${change.id}:`,
               change.position
@@ -387,7 +436,7 @@ export const useSchemaVisualizer = () => {
         }
       });
 
-      // Apply position changes to local state
+      // Apply position changes to ReactFlow
       if (positionChanges.length > 0) {
         onNodesChange(positionChanges);
       }

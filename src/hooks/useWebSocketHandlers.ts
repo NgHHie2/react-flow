@@ -1,5 +1,5 @@
-// src/hooks/useWebSocketHandlers.ts - WebSocket message handlers
-import { useRef, useEffect } from "react";
+// src/hooks/useWebSocketHandlers.ts - Fixed WebSocket message handlers
+import { useRef, useEffect, useCallback } from "react";
 
 interface UseWebSocketHandlersProps {
   updateNodePosition: any;
@@ -26,12 +26,18 @@ export const useWebSocketHandlers = ({
   deleteModel,
   setReactFlowNodes,
 }: UseWebSocketHandlersProps) => {
-  const websocketHandlers = useRef({
-    onNodePositionUpdate: (data: any) => {
+  // Create stable handlers with useCallback to prevent unnecessary re-renders
+  const handleNodePositionUpdate = useCallback(
+    (data: any) => {
       console.log("📍 Received position update from OTHER client:", data);
+      // FIX 1: Force immediate position update with timestamp
       updateNodePosition(data.nodeId, data.positionX, data.positionY);
     },
-    onFieldUpdate: (data: any) => {
+    [updateNodePosition]
+  );
+
+  const handleFieldUpdate = useCallback(
+    (data: any) => {
       console.log("✏️ Received field update from OTHER client:", data);
       updateField(
         data.modelName,
@@ -40,15 +46,27 @@ export const useWebSocketHandlers = ({
         data.attributeType
       );
     },
-    onTogglePrimaryKey: (data: any) => {
+    [updateField]
+  );
+
+  const handleTogglePrimaryKey = useCallback(
+    (data: any) => {
       console.log("🔑 Received primary key toggle from OTHER client:", data);
       togglePrimaryKey(data.modelName, data.attributeId);
     },
-    onToggleForeignKey: (data: any) => {
+    [togglePrimaryKey]
+  );
+
+  const handleToggleForeignKey = useCallback(
+    (data: any) => {
       console.log("🔗 Received foreign key toggle from OTHER client:", data);
       toggleForeignKey(data.modelName, data.attributeId);
     },
-    onAddAttribute: (data: any) => {
+    [toggleForeignKey]
+  );
+
+  const handleAddAttribute = useCallback(
+    (data: any) => {
       console.log("➕ Received add attribute from OTHER client:", data);
       if (data.realAttributeId) {
         addAttribute(
@@ -61,12 +79,19 @@ export const useWebSocketHandlers = ({
         addAttribute(data.modelName, data.attributeName, data.dataType);
       }
     },
-    onDeleteAttribute: (data: any) => {
+    [addAttribute]
+  );
+
+  const handleDeleteAttribute = useCallback(
+    (data: any) => {
       console.log("➖ Received delete attribute from OTHER client:", data);
       deleteAttribute(data.modelName, data.attributeId);
     },
+    [deleteAttribute]
+  );
 
-    onAddModel: (data: any) => {
+  const handleAddModel = useCallback(
+    (data: any) => {
       console.log("🆕 Received add model from OTHER client:", data);
       if (data.realModelId) {
         // This is response with real ID, sync it
@@ -81,20 +106,40 @@ export const useWebSocketHandlers = ({
         addModel(data.modelName, data.positionX, data.positionY);
       }
     },
+    [addModel]
+  );
 
-    onUpdateModelName: (data: any) => {
+  const handleUpdateModelName = useCallback(
+    (data: any) => {
       console.log("📝 Received model name update from OTHER client:", data);
       updateModelName(data.oldModelName, data.newModelName);
     },
+    [updateModelName]
+  );
 
-    onDeleteModel: (data: any) => {
+  const handleDeleteModel = useCallback(
+    (data: any) => {
       console.log("🗑️ Received delete model from OTHER client:", data);
       deleteModel(data.modelName);
     },
-    onForeignKeyConnect: (data: any) => {
+    [deleteModel]
+  );
+
+  // FIX 2: Optimized FK handlers to prevent full re-render
+  const handleForeignKeyConnect = useCallback(
+    (data: any) => {
       console.log("🔗 Received FK connect from OTHER client:", data);
+
+      // Use functional update to prevent stale closure issues
       setReactFlowNodes((currentNodes: any) => {
         return currentNodes.map((node: any) => {
+          // Only update the node that has the connecting attribute
+          const hasTargetAttribute = node.data.attributes?.some(
+            (attr: any) => attr.id === data.attributeId
+          );
+
+          if (!hasTargetAttribute) return node;
+
           const updatedAttributes = node.data.attributes.map((attr: any) => {
             if (attr.id === data.attributeId) {
               return {
@@ -120,16 +165,28 @@ export const useWebSocketHandlers = ({
             data: {
               ...node.data,
               attributes: updatedAttributes,
+              // Add timestamp to force re-render
+              lastConnectionUpdate: Date.now(),
             },
           };
         });
       });
     },
+    [setReactFlowNodes]
+  );
 
-    onForeignKeyDisconnect: (data: any) => {
+  const handleForeignKeyDisconnect = useCallback(
+    (data: any) => {
       console.log("🔓 Received FK disconnect from OTHER client:", data);
+
       setReactFlowNodes((currentNodes: any) => {
         return currentNodes.map((node: any) => {
+          const hasTargetAttribute = node.data.attributes?.some(
+            (attr: any) => attr.id === data.attributeId
+          );
+
+          if (!hasTargetAttribute) return node;
+
           const updatedAttributes = node.data.attributes.map((attr: any) => {
             if (attr.id === data.attributeId) {
               return {
@@ -145,68 +202,57 @@ export const useWebSocketHandlers = ({
             data: {
               ...node.data,
               attributes: updatedAttributes,
+              lastConnectionUpdate: Date.now(),
             },
           };
         });
       });
     },
+    [setReactFlowNodes]
+  );
+
+  // Create stable handlers object
+  const websocketHandlers = useRef({
+    onNodePositionUpdate: handleNodePositionUpdate,
+    onFieldUpdate: handleFieldUpdate,
+    onTogglePrimaryKey: handleTogglePrimaryKey,
+    onToggleForeignKey: handleToggleForeignKey,
+    onAddAttribute: handleAddAttribute,
+    onDeleteAttribute: handleDeleteAttribute,
+    onForeignKeyConnect: handleForeignKeyConnect,
+    onForeignKeyDisconnect: handleForeignKeyDisconnect,
+    onAddModel: handleAddModel,
+    onUpdateModelName: handleUpdateModelName,
+    onDeleteModel: handleDeleteModel,
   });
 
-  // Update handlers when dependencies change
+  // FIX 3: Update handlers only when dependencies actually change
   useEffect(() => {
-    websocketHandlers.current.onNodePositionUpdate = (data: any) => {
-      updateNodePosition(data.nodeId, data.positionX, data.positionY);
-    };
-    websocketHandlers.current.onFieldUpdate = (data: any) => {
-      updateField(
-        data.modelName,
-        data.attributeId,
-        data.attributeName,
-        data.attributeType
-      );
-    };
-    websocketHandlers.current.onTogglePrimaryKey = (data: any) => {
-      togglePrimaryKey(data.modelName, data.attributeId);
-    };
-    websocketHandlers.current.onToggleForeignKey = (data: any) => {
-      toggleForeignKey(data.modelName, data.attributeId);
-    };
-    websocketHandlers.current.onAddAttribute = (data: any) => {
-      addAttribute(data.modelName, data.attributeName, data.dataType);
-    };
-    websocketHandlers.current.onDeleteAttribute = (data: any) => {
-      deleteAttribute(data.modelName, data.attributeId);
-    };
-    websocketHandlers.current.onAddModel = (data: any) => {
-      if (data.realModelId) {
-        addModel(
-          data.modelName,
-          data.positionX,
-          data.positionY,
-          data.realModelId
-        );
-      } else {
-        addModel(data.modelName, data.positionX, data.positionY);
-      }
-    };
-
-    websocketHandlers.current.onUpdateModelName = (data: any) => {
-      updateModelName(data.oldModelName, data.newModelName);
-    };
-
-    websocketHandlers.current.onDeleteModel = (data: any) => {
-      deleteModel(data.modelName);
+    websocketHandlers.current = {
+      onNodePositionUpdate: handleNodePositionUpdate,
+      onFieldUpdate: handleFieldUpdate,
+      onTogglePrimaryKey: handleTogglePrimaryKey,
+      onToggleForeignKey: handleToggleForeignKey,
+      onAddAttribute: handleAddAttribute,
+      onDeleteAttribute: handleDeleteAttribute,
+      onForeignKeyConnect: handleForeignKeyConnect,
+      onForeignKeyDisconnect: handleForeignKeyDisconnect,
+      onAddModel: handleAddModel,
+      onUpdateModelName: handleUpdateModelName,
+      onDeleteModel: handleDeleteModel,
     };
   }, [
-    updateNodePosition,
-    updateField,
-    togglePrimaryKey,
-    toggleForeignKey,
-    addAttribute,
-    deleteAttribute,
-    addModel,
-    updateModelName,
-    deleteModel,
+    handleNodePositionUpdate,
+    handleFieldUpdate,
+    handleTogglePrimaryKey,
+    handleToggleForeignKey,
+    handleAddAttribute,
+    handleDeleteAttribute,
+    handleForeignKeyConnect,
+    handleForeignKeyDisconnect,
+    handleAddModel,
+    handleUpdateModelName,
+    handleDeleteModel,
   ]);
 
   return websocketHandlers;
