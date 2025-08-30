@@ -14,6 +14,9 @@ import {
   DeleteAttributeUpdate,
   ForeignKeyConnectionUpdate,
   ForeignKeyDisconnectUpdate,
+  AddModelUpdate,
+  UpdateModelNameUpdate,
+  DeleteModelUpdate,
 } from "../types/websocket.types";
 
 // Constants
@@ -305,6 +308,18 @@ class WebSocketService {
       "FOREIGN_KEY_DISCONNECT",
       update
     );
+  }
+
+  sendAddModel(update: AddModelUpdate): void {
+    this.sendMessage(DESTINATIONS.addModel, "ADD_MODEL", update);
+  }
+
+  sendUpdateModelName(update: UpdateModelNameUpdate): void {
+    this.sendMessage(DESTINATIONS.updateModelName, "UPDATE_MODEL_NAME", update);
+  }
+
+  sendDeleteModel(update: DeleteModelUpdate): void {
+    this.sendMessage(DESTINATIONS.deleteModel, "DELETE_MODEL", update);
   }
 
   // Utility methods

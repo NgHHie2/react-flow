@@ -1,15 +1,40 @@
-// src/components/ModelHeader.tsx
-import React from "react";
-import { Box, Flex } from "@chakra-ui/react";
+// Cập nhật ModelHeader.tsx
+import React, { useState } from "react";
+import { Box, Flex, IconButton, Tooltip } from "@chakra-ui/react";
+import { X } from "lucide-react";
+import { EditableField } from "./EditableField";
 import { Model } from "../SchemaVisualizer/SchemaVisualizer.types";
 
 interface ModelHeaderProps {
   model: Model;
+  onModelNameUpdate?: (newName: string) => void;
+  onDeleteModel?: () => void;
+  canDelete?: boolean;
 }
 
 const HEADER_HEIGHT = 40;
 
-export const ModelHeader: React.FC<ModelHeaderProps> = ({ model }) => {
+export const ModelHeader: React.FC<ModelHeaderProps> = ({
+  model,
+  onModelNameUpdate,
+  onDeleteModel,
+  canDelete = true,
+}) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleNameUpdate = (newName: string) => {
+    if (onModelNameUpdate) {
+      onModelNameUpdate(newName);
+    }
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onDeleteModel) {
+      onDeleteModel();
+    }
+  };
+
   return (
     <Box
       p={3}
@@ -20,16 +45,21 @@ export const ModelHeader: React.FC<ModelHeaderProps> = ({ model }) => {
       display="flex"
       alignItems="center"
       justifyContent="center"
+      position="relative"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      <Flex alignItems="center" gap={2}>
-        {/* Model Name */}
-        <Box
-          fontWeight="bold"
-          color="white"
-          fontSize="14px"
-          textShadow="0 1px 2px rgba(0,0,0,0.3)"
-        >
-          {model.name}
+      <Flex alignItems="center" gap={2} width="100%">
+        {/* Editable Model Name */}
+        <Box flex={1}>
+          <EditableField
+            value={model.name}
+            onSave={handleNameUpdate}
+            placeholder="Table Name"
+            color="white"
+            minWidth="100px"
+            maxWidth="200px"
+          />
         </Box>
 
         {/* Model Type Text */}
@@ -38,10 +68,31 @@ export const ModelHeader: React.FC<ModelHeaderProps> = ({ model }) => {
           color="rgba(255,255,255,0.7)"
           textTransform="uppercase"
           letterSpacing="0.5px"
+          minWidth="35px"
         >
           {model.modelType}
         </Box>
       </Flex>
+
+      {/* Delete Button - Show on hover */}
+      {isHovered && canDelete && (
+        <Box position="absolute" right="4px" top="4px" zIndex={10}>
+          <Tooltip label="Delete table" fontSize="xs">
+            <IconButton
+              aria-label="Delete table"
+              icon={<X size={12} />}
+              size="xs"
+              variant="ghost"
+              colorScheme="red"
+              onClick={handleDelete}
+              minWidth="16px"
+              height="16px"
+              p={0}
+              _hover={{ bg: "red.400" }}
+            />
+          </Tooltip>
+        </Box>
+      )}
     </Box>
   );
 };

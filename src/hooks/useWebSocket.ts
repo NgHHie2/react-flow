@@ -1,4 +1,4 @@
-// src/hooks/useWebSocket.ts - Updated with FK handlers
+// src/hooks/useWebSocket.ts - Complete update with model handlers
 import { useEffect, useState, useCallback } from "react";
 import { useToast } from "@chakra-ui/react";
 import { websocketService } from "../services/websocketService";
@@ -11,6 +11,9 @@ import {
   DeleteAttributeUpdate,
   ForeignKeyConnectionUpdate,
   ForeignKeyDisconnectUpdate,
+  AddModelUpdate,
+  UpdateModelNameUpdate,
+  DeleteModelUpdate,
 } from "../types/websocket.types";
 
 interface UseWebSocketProps {
@@ -22,6 +25,10 @@ interface UseWebSocketProps {
   onDeleteAttribute: (data: DeleteAttributeUpdate) => void;
   onForeignKeyConnect: (data: ForeignKeyConnectionUpdate) => void;
   onForeignKeyDisconnect: (data: ForeignKeyDisconnectUpdate) => void;
+  // New model handlers
+  onAddModel: (data: AddModelUpdate) => void;
+  onUpdateModelName: (data: UpdateModelNameUpdate) => void;
+  onDeleteModel: (data: DeleteModelUpdate) => void;
 }
 
 export const useWebSocket = ({
@@ -33,6 +40,9 @@ export const useWebSocket = ({
   onDeleteAttribute,
   onForeignKeyConnect,
   onForeignKeyDisconnect,
+  onAddModel,
+  onUpdateModelName,
+  onDeleteModel,
 }: UseWebSocketProps) => {
   const [isConnected, setIsConnected] = useState(false);
   const toast = useToast();
@@ -106,6 +116,19 @@ export const useWebSocket = ({
         console.log("🔓 Received FK disconnect from other client:", data);
         onForeignKeyDisconnect(data);
       },
+      // New model handlers
+      onAddModel: (data) => {
+        console.log("🆕 Received add model from other client:", data);
+        onAddModel(data);
+      },
+      onUpdateModelName: (data) => {
+        console.log("📝 Received model name update from other client:", data);
+        onUpdateModelName(data);
+      },
+      onDeleteModel: (data) => {
+        console.log("🗑️ Received delete model from other client:", data);
+        onDeleteModel(data);
+      },
       onError: handleWebSocketError,
       onConnect: handleConnect,
       onDisconnect: handleDisconnect,
@@ -116,6 +139,7 @@ export const useWebSocket = ({
     };
   }, []); // Empty dependency array - handlers are stable
 
+  // Existing send methods
   const sendNodePositionUpdate = useCallback((update: NodePositionUpdate) => {
     if (websocketService.isConnected()) {
       console.log(
@@ -202,8 +226,40 @@ export const useWebSocket = ({
     []
   );
 
+  // New model send methods
+  const sendAddModel = useCallback((update: AddModelUpdate) => {
+    if (websocketService.isConnected()) {
+      console.log(
+        "📤 Sending add model (will be filtered for this client):",
+        update
+      );
+      websocketService.sendAddModel(update);
+    }
+  }, []);
+
+  const sendUpdateModelName = useCallback((update: UpdateModelNameUpdate) => {
+    if (websocketService.isConnected()) {
+      console.log(
+        "📤 Sending model name update (will be filtered for this client):",
+        update
+      );
+      websocketService.sendUpdateModelName(update);
+    }
+  }, []);
+
+  const sendDeleteModel = useCallback((update: DeleteModelUpdate) => {
+    if (websocketService.isConnected()) {
+      console.log(
+        "📤 Sending delete model (will be filtered for this client):",
+        update
+      );
+      websocketService.sendDeleteModel(update);
+    }
+  }, []);
+
   return {
     isConnected,
+    // Existing methods
     sendNodePositionUpdate,
     sendFieldUpdate,
     sendTogglePrimaryKey,
@@ -212,5 +268,9 @@ export const useWebSocket = ({
     sendDeleteAttribute,
     sendForeignKeyConnect,
     sendForeignKeyDisconnect,
+    // New model methods
+    sendAddModel,
+    sendUpdateModelName,
+    sendDeleteModel,
   };
 };

@@ -281,6 +281,113 @@ export const useSchemaData = () => {
     },
     [toast]
   );
+  const addModel = useCallback(
+    async (modelName: string, positionX: number, positionY: number) => {
+      const tempId = Date.now();
+      const tempModel = {
+        id: tempId,
+        nodeId: modelName,
+        name: modelName,
+        modelType: "TABLE",
+        positionX,
+        positionY,
+        width: 280,
+        height: 200,
+        backgroundColor: "#f1f5f9",
+        borderColor: "#e2e8f0",
+        borderWidth: 2,
+        borderRadius: 8,
+        attributes: [
+          {
+            id: tempId + 1,
+            name: "id",
+            dataType: "BIGINT",
+            isNullable: false,
+            isPrimaryKey: true,
+            isForeignKey: false,
+            attributeOrder: 0,
+            isTemporary: true,
+          },
+        ],
+        zindex: 1,
+        isTemporary: true,
+      };
+
+      setNodes((nds) => [
+        ...nds,
+        {
+          id: modelName,
+          position: { x: positionX, y: positionY },
+          data: tempModel,
+          type: "model",
+        },
+      ]);
+
+      toast({
+        title: "Table Added",
+        description: `Added new table: ${modelName}`,
+        status: "success",
+        duration: 2000,
+        isClosable: true,
+      });
+    },
+    [setNodes, toast]
+  );
+
+  const updateModelName = useCallback(
+    async (oldName: string, newName: string) => {
+      setNodes((nds) =>
+        nds.map((node) =>
+          node.id === oldName
+            ? {
+                ...node,
+                id: newName,
+                data: {
+                  ...node.data,
+                  name: newName,
+                  nodeId: newName,
+                },
+              }
+            : node
+        )
+      );
+
+      // Update edges that reference this model
+      setEdges((eds) =>
+        eds.map((edge) => {
+          let updatedEdge = { ...edge };
+          if (edge.source === oldName) {
+            updatedEdge.source = newName;
+          }
+          if (edge.target === oldName) {
+            updatedEdge.target = newName;
+          }
+          return updatedEdge;
+        })
+      );
+    },
+    [setNodes, setEdges]
+  );
+
+  const deleteModel = useCallback(
+    async (modelName: string) => {
+      setNodes((nds) => nds.filter((node) => node.id !== modelName));
+      setEdges((eds) =>
+        eds.filter(
+          (edge) => edge.source !== modelName && edge.target !== modelName
+        )
+      );
+
+      toast({
+        title: "Table Deleted",
+        description: `Deleted table: ${modelName}`,
+        status: "info",
+        duration: 2000,
+        isClosable: true,
+      });
+    },
+    [setNodes, setEdges, toast]
+  );
 
   return {
     nodes,
@@ -298,5 +405,8 @@ export const useSchemaData = () => {
     toggleForeignKey,
     addAttribute,
     deleteAttribute,
+    addModel,
+    updateModelName,
+    deleteModel,
   };
 };

@@ -29,6 +29,8 @@ interface ModelNodeData extends Model {
     targetAttributeId: number
   ) => void;
   onForeignKeyDisconnect?: (attributeId: number) => void;
+  onModelNameUpdate?: (oldName: string, newName: string) => void;
+  onDeleteModel?: (modelName: string) => void;
 }
 
 export default function ModelNode({ data, id }: NodeProps<ModelNodeData>) {
@@ -89,6 +91,32 @@ export default function ModelNode({ data, id }: NodeProps<ModelNodeData>) {
       data.onForeignKeyDisconnect(attributeId);
     }
   };
+  const handleModelNameUpdate = (newName: string) => {
+    if (data.onModelNameUpdate && newName !== data.name) {
+      data.onModelNameUpdate(data.name, newName);
+    }
+  };
+
+  const handleDeleteModel = () => {
+    if (data.onDeleteModel) {
+      const hasConnections = data.attributes.some((attr) => attr.connection);
+      const isReferenced = data
+        .getAllModels?.()
+        .some((model) =>
+          model.attributes.some(
+            (attr) => attr.connection?.targetModelName === data.name
+          )
+        );
+
+      if (hasConnections || isReferenced) {
+        // Show confirmation dialog or prevent deletion
+        console.warn("Cannot delete table with connections");
+        return;
+      }
+
+      data.onDeleteModel(data.name);
+    }
+  };
 
   // Sort attributes by order
   const sortedAttributes = [...data.attributes].sort(
@@ -120,7 +148,12 @@ export default function ModelNode({ data, id }: NodeProps<ModelNodeData>) {
       overflow="visible"
     >
       {/* Model Header */}
-      <ModelHeader model={data} />
+      <ModelHeader
+        model={data}
+        onModelNameUpdate={handleModelNameUpdate}
+        onDeleteModel={handleDeleteModel}
+        canDelete={data.attributes.length === 1} // Chỉ cho phép xóa nếu chỉ có 1 field (id)
+      />
 
       {/* Model Attributes/Fields */}
       <Box>

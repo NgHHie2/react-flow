@@ -9,6 +9,9 @@ interface UseWebSocketHandlersProps {
   addAttribute: any;
   deleteAttribute: any;
   setReactFlowNodes: any;
+  addModel: any;
+  updateModelName: any;
+  deleteModel: any;
 }
 
 export const useWebSocketHandlers = ({
@@ -18,6 +21,9 @@ export const useWebSocketHandlers = ({
   toggleForeignKey,
   addAttribute,
   deleteAttribute,
+  addModel,
+  updateModelName,
+  deleteModel,
   setReactFlowNodes,
 }: UseWebSocketHandlersProps) => {
   const websocketHandlers = useRef({
@@ -59,6 +65,32 @@ export const useWebSocketHandlers = ({
       console.log("➖ Received delete attribute from OTHER client:", data);
       deleteAttribute(data.modelName, data.attributeId);
     },
+
+    onAddModel: (data: any) => {
+      console.log("🆕 Received add model from OTHER client:", data);
+      if (data.realModelId) {
+        // This is response with real ID, sync it
+        addModel(
+          data.modelName,
+          data.positionX,
+          data.positionY,
+          data.realModelId
+        );
+      } else {
+        // This is initial add from other client
+        addModel(data.modelName, data.positionX, data.positionY);
+      }
+    },
+
+    onUpdateModelName: (data: any) => {
+      console.log("📝 Received model name update from OTHER client:", data);
+      updateModelName(data.oldModelName, data.newModelName);
+    },
+
+    onDeleteModel: (data: any) => {
+      console.log("🗑️ Received delete model from OTHER client:", data);
+      deleteModel(data.modelName);
+    },
     onForeignKeyConnect: (data: any) => {
       console.log("🔗 Received FK connect from OTHER client:", data);
       setReactFlowNodes((currentNodes: any) => {
@@ -93,6 +125,7 @@ export const useWebSocketHandlers = ({
         });
       });
     },
+
     onForeignKeyDisconnect: (data: any) => {
       console.log("🔓 Received FK disconnect from OTHER client:", data);
       setReactFlowNodes((currentNodes: any) => {
@@ -144,6 +177,26 @@ export const useWebSocketHandlers = ({
     websocketHandlers.current.onDeleteAttribute = (data: any) => {
       deleteAttribute(data.modelName, data.attributeId);
     };
+    websocketHandlers.current.onAddModel = (data: any) => {
+      if (data.realModelId) {
+        addModel(
+          data.modelName,
+          data.positionX,
+          data.positionY,
+          data.realModelId
+        );
+      } else {
+        addModel(data.modelName, data.positionX, data.positionY);
+      }
+    };
+
+    websocketHandlers.current.onUpdateModelName = (data: any) => {
+      updateModelName(data.oldModelName, data.newModelName);
+    };
+
+    websocketHandlers.current.onDeleteModel = (data: any) => {
+      deleteModel(data.modelName);
+    };
   }, [
     updateNodePosition,
     updateField,
@@ -151,6 +204,9 @@ export const useWebSocketHandlers = ({
     toggleForeignKey,
     addAttribute,
     deleteAttribute,
+    addModel,
+    updateModelName,
+    deleteModel,
   ]);
 
   return websocketHandlers;

@@ -55,6 +55,24 @@ export interface ForeignKeyDisconnectUpdate extends BaseUpdate {
   attributeId: number;
 }
 
+export interface AddModelUpdate extends BaseUpdate {
+  modelName: string;
+  positionX: number;
+  positionY: number;
+  databaseDiagramId: number;
+}
+
+export interface UpdateModelNameUpdate extends BaseUpdate {
+  modelId: number;
+  oldModelName: string;
+  newModelName: string;
+}
+
+export interface DeleteModelUpdate extends BaseUpdate {
+  modelId: number;
+  modelName: string;
+}
+
 export interface WebSocketResponse<T> {
   type: string;
   data: T;
@@ -73,6 +91,9 @@ export interface MessageHandler {
   onDeleteAttribute?: (data: DeleteAttributeUpdate) => void;
   onForeignKeyConnect?: (data: ForeignKeyConnectionUpdate) => void;
   onForeignKeyDisconnect?: (data: ForeignKeyDisconnectUpdate) => void;
+  onAddModel?: ((data: AddModelUpdate) => void) | undefined;
+  onUpdateModelName?: ((data: UpdateModelNameUpdate) => void) | undefined;
+  onDeleteModel?: ((data: DeleteModelUpdate) => void) | undefined;
   onError?: (error: string) => void;
   onConnect?: () => void;
   onDisconnect?: () => void;

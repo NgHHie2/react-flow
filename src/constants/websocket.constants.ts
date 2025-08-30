@@ -19,6 +19,9 @@ export const MESSAGE_TYPES = {
   DELETE_ATTRIBUTE: "DELETE_ATTRIBUTE",
   FOREIGN_KEY_CONNECT: "FOREIGN_KEY_CONNECT",
   FOREIGN_KEY_DISCONNECT: "FOREIGN_KEY_DISCONNECT",
+  ADD_MODEL: "ADD_MODEL",
+  UPDATE_MODEL_NAME: "UPDATE_MODEL_NAME",
+  DELETE_MODEL: "DELETE_MODEL",
   ERROR: "ERROR",
 } as const;
 
@@ -32,6 +35,9 @@ export const DESTINATIONS = {
   deleteAttribute: "/app/deleteAttribute",
   connectForeignKey: "/app/connectForeignKey",
   disconnectForeignKey: "/app/disconnectForeignKey",
+  addModel: "/app/addModel",
+  updateModelName: "/app/updateModelName",
+  deleteModel: "/app/deleteModel",
 } as const;
 
 // Subscription Topics
