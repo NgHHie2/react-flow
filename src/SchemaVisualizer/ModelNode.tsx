@@ -94,7 +94,11 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
   );
 
   const handleToggleKeyType = useCallback(
-    (fieldIndex: number, keyType: "NORMAL" | "PRIMARY" | "FOREIGN") => {
+    (
+      modelName: string,
+      fieldIndex: number,
+      keyType: "NORMAL" | "PRIMARY" | "FOREIGN"
+    ) => {
       const attribute = sortedAttributes[fieldIndex];
       if (!attribute?.id || !data.onToggleKeyType) return;
 

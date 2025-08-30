@@ -15,6 +15,7 @@ interface FieldComponentProps {
   onFieldNameUpdate: (fieldIndex: number, newName: string) => void;
   onFieldTypeUpdate: (fieldIndex: number, newType: string) => void;
   onToggleKeyType: (
+    modelName: string,
     fieldIndex: number,
     newKeyType: "NORMAL" | "PRIMARY" | "FOREIGN"
   ) => void;
@@ -72,13 +73,14 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
 
   // Determine current key type
   const getCurrentKeyType = (): KeyType => {
-    if (isPK) return "PRIMARY";
-    if (isFK) return "FOREIGN";
+    if (attribute.isPrimaryKey) return "PRIMARY";
+    if (attribute.isForeignKey) return "FOREIGN";
     return "NORMAL";
   };
 
   // Get next key type in cycle: NORMAL -> PRIMARY -> FOREIGN -> NORMAL
   const getNextKeyType = (current: KeyType): KeyType => {
+    console.log("🔄 Current key type:", current);
     switch (current) {
       case "NORMAL":
         return "PRIMARY";
@@ -133,10 +135,16 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
     const currentType = getCurrentKeyType();
     const nextType = getNextKeyType(currentType);
 
-    console.log(
-      `Toggling key type for ${attribute.name}: ${currentType} -> ${nextType}`
-    );
-    onToggleKeyType(fieldIndex, nextType);
+    console.log(`🔄 Toggle ${attribute.name}:`, {
+      attributeId: attribute.id,
+      currentType,
+      nextType,
+      currentPK: isPK,
+      currentFK: isFK,
+    });
+
+    // ⭐ QUAN TRỌNG: Gọi với attributeId thay vì fieldIndex
+    onToggleKeyType(modelName, attribute.id, nextType);
   };
 
   // Handle click on handles - show FK selector for FK fields

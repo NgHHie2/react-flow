@@ -115,6 +115,8 @@ export const useSchemaVisualizer = () => {
 
   // FIX 2: Stable model operation handlers
   const handleAddModel = useCallback(() => {
+    if (!schemaInfo) return;
+
     const timestamp = Date.now();
     const newModelName = `Table_${timestamp}`;
     const positionX = Math.random() * 400 + 100;
@@ -122,17 +124,18 @@ export const useSchemaVisualizer = () => {
 
     console.log("🆕 Adding new model:", { newModelName, positionX, positionY });
 
-    addModel(newModelName, positionX, positionY);
-
-    if (isConnected && schemaInfo) {
+    // KHÔNG cập nhật UI ngay, chỉ gửi WebSocket và chờ response
+    if (isConnected) {
       sendAddModel({
         modelName: newModelName,
         positionX,
         positionY,
         databaseDiagramId: schemaInfo.id,
       });
+
+      console.log("📤 Sent add model request, waiting for backend response...");
     }
-  }, [addModel, sendAddModel, schemaInfo, isConnected]);
+  }, [schemaInfo, isConnected, sendAddModel]);
 
   // FIX 3: Improved model name update handler
   const handleModelNameUpdate = useCallback(
@@ -150,18 +153,12 @@ export const useSchemaVisualizer = () => {
 
       const trimmedNewName = newName.trim();
 
-      // FIX: Tìm node theo cả oldName và data.name để tránh race condition
-      let node = reactFlowNodesRef.current.find((n) => n.id === oldName);
-      if (!node) {
-        // Fallback: tìm theo data.name nếu không tìm thấy theo oldName
-        node = reactFlowNodes.find((n) => n.data.name === oldName);
-        console.log("🔍 Fallback node search result:", !!node);
-      }
-
+      // Tìm node theo oldName
+      const node = reactFlowNodesRef.current.find((n) => n.id === oldName);
       if (!node) {
         console.warn(`⚠️ Node not found for name update:`, {
           oldName,
-          availableNodes: reactFlowNodes.map((n) => ({
+          availableNodes: reactFlowNodesRef.current.map((n) => ({
             id: n.id,
             dataName: n.data.name,
           })),
@@ -171,25 +168,52 @@ export const useSchemaVisualizer = () => {
 
       console.log(`📝 Found node, updating: ${oldName} -> ${trimmedNewName}`);
 
-      updateModelName(oldName, trimmedNewName);
+      // ⭐ Update local UI immediately
+      setReactFlowNodes((currentNodes: any) => {
+        return currentNodes.map((currentNode: any) => {
+          if (currentNode.id === oldName) {
+            return {
+              ...currentNode,
+              id: trimmedNewName, // Change node ID
+              data: {
+                ...currentNode.data,
+                name: trimmedNewName,
+                nodeId: trimmedNewName,
+                lastNameUpdate: Date.now(),
+              },
+            };
+          }
+          return currentNode;
+        });
+      });
 
+      // ⭐ Gửi WebSocket để sync với other clients
       if (isConnected) {
+        console.log("📤 Sending model name update via WebSocket");
         sendUpdateModelName({
           modelId: node.data.id,
           oldModelName: oldName,
           newModelName: trimmedNewName,
         });
+      } else {
+        console.warn("⚠️ Not connected, cannot send WebSocket update");
       }
     },
-    [reactFlowNodes, updateModelName, sendUpdateModelName, isConnected]
+    [setReactFlowNodes, sendUpdateModelName, isConnected]
   );
 
   const handleDeleteModel = useCallback(
     (modelName: string) => {
-      let node = reactFlowNodesRef.current.find((n) => n.id === modelName);
-      if (!node) return;
+      const node = reactFlowNodesRef.current.find(
+        (n: any) => n.id === modelName
+      );
+      console.log("hiep dep trai");
+      if (!node) {
+        console.warn(`⚠️ Node not found for delete: ${modelName}`);
+        return;
+      }
 
-      // Check connections
+      // Check connections trước khi xóa
       const hasConnections =
         node.data.attributes?.some((attr: any) => attr.connection) ||
         reactFlowNodes.some(
@@ -201,20 +225,21 @@ export const useSchemaVisualizer = () => {
         );
 
       if (hasConnections) {
-        console.warn("Cannot delete model with connections:", modelName);
+        console.warn("❌ Cannot delete model with connections:", modelName);
         return;
       }
 
-      deleteModel(modelName);
+      console.log(`🗑️ Deleting model: ${modelName}, ID: ${node.data.id}`);
 
+      // Gửi WebSocket với cả modelName và modelId
       if (isConnected) {
         sendDeleteModel({
           modelId: node.data.id,
-          modelName,
+          modelName: modelName,
         });
       }
     },
-    [reactFlowNodes, deleteModel, sendDeleteModel, isConnected]
+    [reactFlowNodes, sendDeleteModel, isConnected]
   );
 
   // Basic action handlers
@@ -243,7 +268,7 @@ export const useSchemaVisualizer = () => {
     () => ({
       getAllModels: () => currentNodesRef.current.map((n) => n.data),
       onFieldUpdate: handleFieldUpdate,
-      onToggleKeyType: handleToggleKeyType,
+      onToggleKeyType: handleToggleKeyType, // Signature: (modelName, attributeId, keyType)
       onAddAttribute: handleAddAttribute,
       onDeleteAttribute: handleDeleteAttribute,
       onForeignKeyTargetSelect: handleForeignKeyTargetSelect,

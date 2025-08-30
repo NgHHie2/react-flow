@@ -199,83 +199,31 @@ export const useSchemaData = () => {
       modelName: string,
       attributeName: string,
       dataType: string,
-      realAttributeId?: number
+      attributeData: any // Full attribute data với real ID từ backend
     ) => {
-      if (realAttributeId) {
-        // This is a sync update from backend with real ID
-        // Remove the temporary attribute and add the real one
-        setNodes((nds) =>
-          nds.map((node) =>
-            node.id === modelName
-              ? {
-                  ...node,
-                  data: {
-                    ...node.data,
-                    attributes: [
-                      // Keep all non-temporary attributes
-                      ...node.data.attributes.filter(
-                        (attr: any) => !attr.isTemporary
-                      ),
-                      // Add the real attribute
-                      {
-                        id: realAttributeId,
-                        name: attributeName,
-                        dataType: dataType,
-                        isNullable: true,
-                        isPrimaryKey: false,
-                        isForeignKey: false,
-                        attributeOrder: node.data.attributes.length - 1, // Replace temp position
-                      },
-                    ],
-                  },
-                }
-              : node
-          )
-        );
+      console.log("✅ Adding attribute with real data:", attributeData);
 
-        console.log(
-          "✅ Replaced temporary attribute with real ID:",
-          realAttributeId
-        );
-      } else {
-        // This is initial optimistic update with temp ID
-        const tempId = Date.now();
-        setNodes((nds) =>
-          nds.map((node) =>
-            node.id === modelName
-              ? {
-                  ...node,
-                  data: {
-                    ...node.data,
-                    attributes: [
-                      ...node.data.attributes,
-                      {
-                        id: tempId, // Temporary ID
-                        name: attributeName,
-                        dataType: dataType,
-                        isNullable: true,
-                        isPrimaryKey: false,
-                        isForeignKey: false,
-                        attributeOrder: node.data.attributes.length,
-                        isTemporary: true, // Mark as temporary
-                      },
-                    ],
-                  },
-                }
-              : node
-          )
-        );
+      setNodes((nds) =>
+        nds.map((node) =>
+          node.id === modelName
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  attributes: [...node.data.attributes, attributeData],
+                },
+              }
+            : node
+        )
+      );
 
-        console.log("⏳ Added temporary attribute with ID:", tempId);
-
-        toast({
-          title: "Attribute Added",
-          description: `Added ${attributeName} to ${modelName}`,
-          status: "success",
-          duration: 2000,
-          isClosable: true,
-        });
-      }
+      toast({
+        title: "Attribute Added",
+        description: `Added ${attributeName} to ${modelName}`,
+        status: "success",
+        duration: 2000,
+        isClosable: true,
+      });
     },
     [toast]
   );
@@ -315,68 +263,16 @@ export const useSchemaData = () => {
       modelName: string,
       positionX: number,
       positionY: number,
-      realModelId?: number
+      modelData: any // Full model data với real ID từ backend
     ) => {
-      if (realModelId) {
-        // This is response with real ID - update existing temp model
-        setNodes((prevNodes) =>
-          prevNodes.map((node) =>
-            node.data.name === modelName && node.data.isTemporary
-              ? {
-                  ...node,
-                  data: {
-                    ...node.data,
-                    id: realModelId,
-                    isTemporary: false,
-                  },
-                }
-              : node
-          )
-        );
-
-        console.log(
-          `✅ Updated model ${modelName} with real ID: ${realModelId}`
-        );
-        return;
-      }
-
-      // Create new temp model
-      const tempId = Date.now();
-      const tempModel = {
-        id: tempId,
-        nodeId: modelName,
-        name: modelName,
-        modelType: "TABLE",
-        positionX,
-        positionY,
-        width: 280,
-        height: 200,
-        backgroundColor: "#f1f5f9",
-        borderColor: "#e2e8f0",
-        borderWidth: 2,
-        borderRadius: 8,
-        attributes: [
-          {
-            id: tempId + 1,
-            name: "id",
-            dataType: "BIGINT",
-            isNullable: false,
-            isPrimaryKey: true,
-            isForeignKey: false,
-            attributeOrder: 0,
-            isTemporary: true,
-          },
-        ],
-        zindex: 1,
-        isTemporary: true,
-      };
+      console.log("✅ Adding model with real data:", modelData);
 
       setNodes((nds) => [
         ...nds,
         {
           id: modelName,
           position: { x: positionX, y: positionY },
-          data: tempModel,
+          data: modelData, // Sử dụng data thật từ backend
           type: "model",
         },
       ]);
@@ -473,7 +369,21 @@ export const useSchemaData = () => {
 
   const deleteModel = useCallback(
     async (modelName: string) => {
-      setNodes((nds) => nds.filter((node) => node.id !== modelName));
+      console.log("🗑️ deleteModel called:", modelName);
+
+      setNodes((nds) => {
+        console.log(
+          "📊 Data store nodes before delete:",
+          nds.map((n) => n.id)
+        );
+        const filtered = nds.filter((node) => node.id !== modelName);
+        console.log(
+          "📊 Data store nodes after delete:",
+          filtered.map((n) => n.id)
+        );
+        return filtered;
+      });
+
       setEdges((eds) =>
         eds.filter(
           (edge) => edge.source !== modelName && edge.target !== modelName

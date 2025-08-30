@@ -84,10 +84,10 @@ export const useNodeHandlers = ({
   const handleToggleKeyType = useCallback(
     (
       modelName: string,
-      attributeId: number,
+      attributeId: number, // ⭐ SỬA: Nhận attributeId trực tiếp thay vì fieldIndex
       keyType: "NORMAL" | "PRIMARY" | "FOREIGN"
     ) => {
-      console.log("📤 Sending toggle key type:", {
+      console.log("📤 handleToggleKeyType called:", {
         modelName,
         attributeId,
         keyType,
@@ -98,16 +98,35 @@ export const useNodeHandlers = ({
           if (node.id !== modelName) return node;
 
           const modelId = node.data.id;
+
+          // ⭐ Tìm attribute hiện tại để debug
+          const currentAttr = node.data.attributes.find(
+            (attr: any) => attr.id === attributeId
+          );
+
+          if (!currentAttr) {
+            console.warn("❌ Attribute not found:", attributeId);
+            return node;
+          }
+
+          console.log("🔍 Found attribute to toggle:", {
+            id: currentAttr.id,
+            name: currentAttr.name,
+            currentPK: currentAttr.isPrimaryKey,
+            currentFK: currentAttr.isForeignKey,
+            targetType: keyType,
+          });
+
           const updatedAttributes = node.data.attributes.map((attr: any) => {
             if (attr.id !== attributeId) return attr;
 
-            // Apply key type change and handle connection removal
+            // ⭐ Apply new key type
             if (keyType === "PRIMARY") {
               return {
                 ...attr,
                 isPrimaryKey: true,
                 isForeignKey: false,
-                connection: undefined, // Remove connection when converting to PK
+                connection: undefined,
               };
             } else if (keyType === "FOREIGN") {
               return {
@@ -117,30 +136,28 @@ export const useNodeHandlers = ({
                 // Keep connection if exists
               };
             } else {
+              // NORMAL
               return {
                 ...attr,
                 isPrimaryKey: false,
                 isForeignKey: false,
-                connection: undefined, // Remove connection when converting to normal
+                connection: undefined,
               };
             }
           });
 
-          // Send WebSocket update
-          const currentAttr = node.data.attributes.find(
-            (attr: any) => attr.id === attributeId
-          );
-
-          if (
-            keyType === "PRIMARY" ||
-            (keyType === "NORMAL" && currentAttr?.isPrimaryKey)
-          ) {
+          // Send WebSocket based on target keyType
+          if (keyType === "PRIMARY") {
             sendTogglePrimaryKey({ modelName, modelId, attributeId });
-          } else if (
-            keyType === "FOREIGN" ||
-            (keyType === "NORMAL" && currentAttr?.isForeignKey)
-          ) {
+          } else if (keyType === "FOREIGN") {
             sendToggleForeignKey({ modelName, modelId, attributeId });
+          } else {
+            // For NORMAL, send toggle based on current state
+            if (currentAttr.isPrimaryKey) {
+              sendTogglePrimaryKey({ modelName, modelId, attributeId });
+            } else if (currentAttr.isForeignKey) {
+              sendToggleForeignKey({ modelName, modelId, attributeId });
+            }
           }
 
           return {
@@ -148,12 +165,12 @@ export const useNodeHandlers = ({
             data: {
               ...node.data,
               attributes: updatedAttributes,
-              // CẬP NHẬT allModels với attributes mới
               allModels: currentNodes.map((n: any) => ({
                 ...n.data,
                 attributes:
                   n.id === modelName ? updatedAttributes : n.data.attributes,
               })),
+              lastKeyUpdate: Date.now(), // Force re-render
             },
           };
         });
@@ -169,56 +186,29 @@ export const useNodeHandlers = ({
     (modelName: string) => {
       console.log("📤 Adding attribute to:", { modelName });
 
-      // CẬP NHẬT LOCAL STATE NGAY LẬP TỨC
-      setReactFlowNodes((currentNodes: any) => {
-        const tempId = Date.now(); // Tạo temp ID
+      const node = reactFlowNodesRef.current.find(
+        (n: any) => n.id === modelName
+      );
+      if (!node) {
+        console.error("❌ Node not found:", modelName);
+        return;
+      }
 
-        const updatedNodes = currentNodes.map((node: any) => {
-          if (node.id !== modelName) return node;
+      const modelId = node.data.id;
 
-          const newAttribute = {
-            id: tempId,
-            name: "new_field",
-            dataType: "VARCHAR(255)",
-            isNullable: true,
-            isPrimaryKey: false,
-            isForeignKey: false,
-            attributeOrder: node.data.attributes.length,
-            isTemporary: true, // Đánh dấu là temp
-          };
-
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              attributes: [...node.data.attributes, newAttribute],
-              allModels: currentNodes.map((n: any) => ({
-                ...n.data,
-                attributes:
-                  n.id === modelName
-                    ? [...n.data.attributes, newAttribute]
-                    : n.data.attributes,
-              })),
-            },
-          };
-        });
-
-        // Gửi WebSocket sau khi đã cập nhật UI
-        const node = currentNodes.find((n: any) => n.id === modelName);
-        if (node) {
-          const modelId = node.data.id;
-          sendAddAttribute({
-            modelName,
-            modelId,
-            attributeName: "new_field",
-            dataType: "VARCHAR(255)",
-          });
-        }
-
-        return updatedNodes;
+      // KHÔNG cập nhật UI ngay, chỉ gửi WebSocket và chờ response
+      sendAddAttribute({
+        modelName,
+        modelId,
+        attributeName: "new_field",
+        dataType: "VARCHAR(255)",
       });
+
+      console.log(
+        "📤 Sent add attribute request, waiting for backend response..."
+      );
     },
-    [setReactFlowNodes, sendAddAttribute]
+    [sendAddAttribute]
   );
 
   // Delete attribute handler

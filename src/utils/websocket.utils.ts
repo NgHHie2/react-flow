@@ -86,52 +86,66 @@ export const parseWebSocketMessage = <T>(
 /**
  * Route message to appropriate handler with filtering
  */
-export const routeMessage = <T>(
-  response: WebSocketResponse<T>,
+export const routeMessage = (
+  response: WebSocketResponse<any>,
   handlers: MessageHandler,
   currentSessionId: string | null
 ): void => {
-  // Method 1: Session-based filtering (Primary)
-  if (
-    FILTER_CONFIG.enableMessageFiltering &&
-    response.sessionId === currentSessionId
-  ) {
-    console.log(`🔇 Filtered own message (session): ${response.type}`);
+  if (!response || !response.type) return;
+
+  // CHỈ FILTER CHO POSITION UPDATES để tránh echo khi drag
+  // Các update khác như ADD_ATTRIBUTE, ADD_MODEL thì tất cả clients đều nhận
+  const shouldFilterForCurrentClient =
+    response.type === "NODE_POSITION_UPDATE" &&
+    response.sessionId === currentSessionId;
+
+  if (shouldFilterForCurrentClient) {
+    console.log(`⏸️ Filtering ${response.type} for current client`);
     return;
   }
 
-  // Method 2: Message ID-based filtering (Secondary)
-  if (
-    FILTER_CONFIG.enableMessageFiltering &&
-    response.messageId &&
-    messageTracker.wasSentByClient(response.messageId)
-  ) {
-    console.log(`🔇 Filtered own message (ID): ${response.messageId}`);
-    return;
-  }
+  console.log(`📨 Processing ${response.type} for client`);
 
-  // Route to appropriate handler
-  const handlerMap: Record<string, ((data: any) => void) | undefined> = {
-    [MESSAGE_TYPES.NODE_POSITION_UPDATE]: handlers.onNodePositionUpdate,
-    [MESSAGE_TYPES.FIELD_UPDATE]: handlers.onFieldUpdate,
-    [MESSAGE_TYPES.TOGGLE_PRIMARY_KEY]: handlers.onTogglePrimaryKey,
-    [MESSAGE_TYPES.TOGGLE_FOREIGN_KEY]: handlers.onToggleForeignKey,
-    [MESSAGE_TYPES.ADD_ATTRIBUTE]: handlers.onAddAttribute,
-    [MESSAGE_TYPES.DELETE_ATTRIBUTE]: handlers.onDeleteAttribute,
-    [MESSAGE_TYPES.FOREIGN_KEY_CONNECT]: handlers.onForeignKeyConnect,
-    [MESSAGE_TYPES.FOREIGN_KEY_DISCONNECT]: handlers.onForeignKeyDisconnect,
-    [MESSAGE_TYPES.ADD_MODEL]: handlers.onAddModel,
-    [MESSAGE_TYPES.UPDATE_MODEL_NAME]: handlers.onUpdateModelName,
-    [MESSAGE_TYPES.DELETE_MODEL]: handlers.onDeleteModel,
-    [MESSAGE_TYPES.ERROR]: handlers.onError,
-  };
-
-  const handler = handlerMap[response.type];
-  if (handler) {
-    console.log(`📨 Processing message from other client: ${response.type}`);
-    handler(response.data);
-  } else {
-    console.warn(`❓ Unhandled message type: ${response.type}`);
+  try {
+    switch (response.type) {
+      case "NODE_POSITION_UPDATE":
+        handlers.onNodePositionUpdate?.(response.data);
+        break;
+      case "FIELD_UPDATE":
+        handlers.onFieldUpdate?.(response.data);
+        break;
+      case "TOGGLE_PRIMARY_KEY":
+        handlers.onTogglePrimaryKey?.(response.data);
+        break;
+      case "TOGGLE_FOREIGN_KEY":
+        handlers.onToggleForeignKey?.(response.data);
+        break;
+      case "ADD_ATTRIBUTE":
+        handlers.onAddAttribute?.(response.data);
+        break;
+      case "DELETE_ATTRIBUTE":
+        handlers.onDeleteAttribute?.(response.data);
+        break;
+      case "FOREIGN_KEY_CONNECT":
+        handlers.onForeignKeyConnect?.(response.data);
+        break;
+      case "FOREIGN_KEY_DISCONNECT":
+        handlers.onForeignKeyDisconnect?.(response.data);
+        break;
+      case "ADD_MODEL":
+        handlers.onAddModel?.(response.data);
+        break;
+      case "UPDATE_MODEL_NAME":
+        handlers.onUpdateModelName?.(response.data);
+        break;
+      case "DELETE_MODEL":
+        handlers.onDeleteModel?.(response.data);
+        break;
+      default:
+        console.warn(`Unknown message type: ${response.type}`);
+    }
+  } catch (error) {
+    console.error(`Error processing ${response.type}:`, error);
   }
 };
 
