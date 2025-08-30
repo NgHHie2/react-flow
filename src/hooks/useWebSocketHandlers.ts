@@ -12,6 +12,7 @@ interface UseWebSocketHandlersProps {
   addModel: any;
   updateModelName: any;
   deleteModel: any;
+  setIsUpdatingFromWebSocket?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const useWebSocketHandlers = ({
@@ -25,15 +26,43 @@ export const useWebSocketHandlers = ({
   updateModelName,
   deleteModel,
   setReactFlowNodes,
+  setIsUpdatingFromWebSocket,
 }: UseWebSocketHandlersProps) => {
   // Create stable handlers with useCallback to prevent unnecessary re-renders
   const handleNodePositionUpdate = useCallback(
     (data: any) => {
       console.log("📍 Received position update from OTHER client:", data);
-      // FIX 1: Force immediate position update with timestamp
+
+      // FIX: Set flag to prevent echo
+      if (setIsUpdatingFromWebSocket) {
+        setIsUpdatingFromWebSocket(true);
+      }
+
+      // Update both data store and ReactFlow nodes
       updateNodePosition(data.nodeId, data.positionX, data.positionY);
+
+      // CRITICAL: Also update ReactFlow nodes directly
+      setReactFlowNodes((currentNodes: any) => {
+        return currentNodes.map((node: any) =>
+          node.id === data.nodeId
+            ? {
+                ...node,
+                position: { x: data.positionX, y: data.positionY },
+                data: {
+                  ...node.data,
+                  lastUpdate: Date.now(), // Force re-render
+                },
+              }
+            : node
+        );
+      });
+
+      // Reset flag after update
+      if (setIsUpdatingFromWebSocket) {
+        setTimeout(() => setIsUpdatingFromWebSocket(false), 100);
+      }
     },
-    [updateNodePosition]
+    [updateNodePosition, setReactFlowNodes, setIsUpdatingFromWebSocket]
   );
 
   const handleFieldUpdate = useCallback(

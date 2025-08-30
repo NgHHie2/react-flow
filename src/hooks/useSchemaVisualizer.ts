@@ -39,6 +39,7 @@ export const useSchemaVisualizer = () => {
 
   const [reactFlowNodes, setReactFlowNodes, onNodesChange] = useNodesState([]);
   const [reactFlowEdges, setReactFlowEdges, onEdgesChange] = useEdgesState([]);
+  const [isUpdatingFromWebSocket, setIsUpdatingFromWebSocket] = useState(false);
 
   const hasInitialized = useRef(false);
   const currentNodesRef = useRef<any[]>([]);
@@ -56,6 +57,7 @@ export const useSchemaVisualizer = () => {
     updateModelName,
     deleteModel,
     setReactFlowNodes,
+    setIsUpdatingFromWebSocket,
   });
 
   // WebSocket connection
@@ -426,7 +428,8 @@ export const useSchemaVisualizer = () => {
         if (change.type === "position" && change.position && !change.dragging) {
           // Position change is finalized (not during drag)
           const node = reactFlowNodes.find((n) => n.id === change.id);
-          if (node && !isUpdatingFromWebSocketRef.current) {
+          // FIX: Use the new state instead of ref
+          if (node && !isUpdatingFromWebSocket) {
             console.log(
               `📍 Position finalized for ${change.id}:`,
               change.position
@@ -441,7 +444,7 @@ export const useSchemaVisualizer = () => {
         onNodesChange(positionChanges);
       }
     },
-    [onNodesChange, reactFlowNodes, updateNodePosition]
+    [onNodesChange, reactFlowNodes, updateNodePosition, isUpdatingFromWebSocket] // Add dependency
   );
 
   return {

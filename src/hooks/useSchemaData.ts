@@ -64,14 +64,13 @@ export const useSchemaData = () => {
     async (nodeId: string, x: number, y: number) => {
       console.log(`🎯 Updating position for ${nodeId}: (${x}, ${y})`);
 
-      // Update local state immediately with forced re-render
+      // Update local state immediately
       setNodes((prevNodes) => {
-        const updatedNodes = prevNodes.map((node) =>
+        return prevNodes.map((node) =>
           node.id === nodeId
             ? {
                 ...node,
                 position: { x, y },
-                // Force re-render by updating a timestamp
                 data: {
                   ...node.data,
                   lastUpdate: Date.now(),
@@ -79,9 +78,6 @@ export const useSchemaData = () => {
               }
             : node
         );
-
-        console.log(`✅ Position updated locally for ${nodeId}: (${x}, ${y})`);
-        return updatedNodes;
       });
     },
     []
