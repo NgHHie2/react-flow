@@ -41,6 +41,11 @@ export const useSchemaVisualizer = () => {
   const [reactFlowEdges, setReactFlowEdges, onEdgesChange] = useEdgesState([]);
   const [isUpdatingFromWebSocket, setIsUpdatingFromWebSocket] = useState(false);
 
+  const reactFlowNodesRef = useRef<Node[]>([]);
+  useEffect(() => {
+    reactFlowNodesRef.current = reactFlowNodes;
+  }, [reactFlowNodes]);
+
   const hasInitialized = useRef(false);
   const currentNodesRef = useRef<any[]>([]);
   const isUpdatingFromWebSocketRef = useRef(false); // FIX 1: Add WebSocket update flag
@@ -146,8 +151,7 @@ export const useSchemaVisualizer = () => {
       const trimmedNewName = newName.trim();
 
       // FIX: Tìm node theo cả oldName và data.name để tránh race condition
-      console.log(reactFlowNodes);
-      let node = reactFlowNodes.find((n) => n.id === oldName);
+      let node = reactFlowNodesRef.current.find((n) => n.id === oldName);
       if (!node) {
         // Fallback: tìm theo data.name nếu không tìm thấy theo oldName
         node = reactFlowNodes.find((n) => n.data.name === oldName);
@@ -182,7 +186,7 @@ export const useSchemaVisualizer = () => {
 
   const handleDeleteModel = useCallback(
     (modelName: string) => {
-      const node = reactFlowNodes.find((n) => n.id === modelName);
+      let node = reactFlowNodesRef.current.find((n) => n.id === modelName);
       if (!node) return;
 
       // Check connections

@@ -120,6 +120,9 @@ export const routeMessage = <T>(
     [MESSAGE_TYPES.DELETE_ATTRIBUTE]: handlers.onDeleteAttribute,
     [MESSAGE_TYPES.FOREIGN_KEY_CONNECT]: handlers.onForeignKeyConnect,
     [MESSAGE_TYPES.FOREIGN_KEY_DISCONNECT]: handlers.onForeignKeyDisconnect,
+    [MESSAGE_TYPES.ADD_MODEL]: handlers.onAddModel,
+    [MESSAGE_TYPES.UPDATE_MODEL_NAME]: handlers.onUpdateModelName,
+    [MESSAGE_TYPES.DELETE_MODEL]: handlers.onDeleteModel,
     [MESSAGE_TYPES.ERROR]: handlers.onError,
   };
 

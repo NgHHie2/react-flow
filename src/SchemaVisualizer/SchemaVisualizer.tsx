@@ -13,6 +13,7 @@ import { ReactFlowCanvas } from "../components/ReactFlowCanvas";
 
 // Hooks
 import { useSchemaVisualizer } from "../hooks/useSchemaVisualizer";
+import { AddModelButton } from "../components/AddModelButton";
 
 export const SchemaVisualizer = () => {
   const {
@@ -37,6 +38,8 @@ export const SchemaVisualizer = () => {
     isConnected,
 
     // Action handlers
+    handleDeleteModel,
+    handleAddModel,
     handleRefresh,
     handleReset,
     handleInitialize,
@@ -79,6 +82,10 @@ export const SchemaVisualizer = () => {
           edgesCount={reactFlowEdges.length}
         />
       )} */}
+      <AddModelButton
+        isConnected={isConnected}
+        onAddModel={handleAddModel}
+      ></AddModelButton>
 
       {/* Control Panel */}
       <ControlPanel

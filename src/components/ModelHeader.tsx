@@ -78,24 +78,23 @@ export const ModelHeader: React.FC<ModelHeaderProps> = ({
       </Flex>
 
       {/* Delete Button - Show on hover */}
-      {isHovered && canDelete && !isEditing && (
-        <Box position="absolute" right="4px" top="4px" zIndex={10}>
-          <Tooltip label="Delete table" fontSize="xs">
-            <IconButton
-              aria-label="Delete table"
-              icon={<X size={12} />}
-              size="xs"
-              variant="ghost"
-              colorScheme="red"
-              onClick={handleDelete}
-              minWidth="16px"
-              height="16px"
-              p={0}
-              _hover={{ bg: "red.400" }}
-            />
-          </Tooltip>
-        </Box>
-      )}
+
+      <Box position="absolute" right="4px" top="4px" zIndex={10}>
+        <Tooltip label="Delete table" fontSize="xs">
+          <IconButton
+            aria-label="Delete table"
+            icon={<X size={12} />}
+            size="xs"
+            variant="ghost"
+            colorScheme="red"
+            onClick={handleDelete}
+            minWidth="16px"
+            height="16px"
+            p={0}
+            _hover={{ bg: "red.400" }}
+          />
+        </Tooltip>
+      </Box>
     </Box>
   );
 };

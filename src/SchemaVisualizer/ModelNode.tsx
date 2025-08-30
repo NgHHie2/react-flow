@@ -206,6 +206,7 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
     }
 
     console.log(`🗑️ Deleting model: ${data.name}`);
+    console.log(data);
     data.onDeleteModel(data.name);
   }, [data.onDeleteModel, data.attributes, data.name, allModels]);
 
