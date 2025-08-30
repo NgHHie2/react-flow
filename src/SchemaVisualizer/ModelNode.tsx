@@ -164,10 +164,22 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
 
   const handleModelNameUpdate = useCallback(
     (newName: string) => {
-      if (!data.onModelNameUpdate || !newName.trim()) return;
+      console.log("🏷️ ModelNode - handleModelNameUpdate called:", {
+        oldName: data.name,
+        newName,
+        hasHandler: !!data.onModelNameUpdate,
+      });
+
+      if (!data.onModelNameUpdate || !newName.trim()) {
+        console.warn("⚠️ Model name update failed:", {
+          hasHandler: !!data.onModelNameUpdate,
+          newName,
+          trimmed: newName.trim(),
+        });
+        return;
+      }
 
       const trimmedName = newName.trim();
-      // Only call if name actually changed
       if (trimmedName !== data.name) {
         console.log(`📝 Model name update: ${data.name} -> ${trimmedName}`);
         data.onModelNameUpdate(data.name, trimmedName);
@@ -175,7 +187,6 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
     },
     [data.onModelNameUpdate, data.name]
   );
-
   const handleDeleteModel = useCallback(() => {
     if (!data.onDeleteModel) return;
 

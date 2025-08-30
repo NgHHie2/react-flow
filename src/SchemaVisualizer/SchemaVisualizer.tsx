@@ -66,6 +66,8 @@ export const SchemaVisualizer = () => {
     return <EmptyState onInitialize={handleInitialize} />;
   }
 
+  console.log(reactFlowNodes);
+
   // Render main schema visualizer
   return (
     <Box height="100vh" width="100vw" bg="#1C1c1c" position="relative">

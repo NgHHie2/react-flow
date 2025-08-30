@@ -132,19 +132,40 @@ export const useSchemaVisualizer = () => {
   // FIX 3: Improved model name update handler
   const handleModelNameUpdate = useCallback(
     (oldName: string, newName: string) => {
-      if (oldName === newName || !newName.trim()) return;
+      console.log("🏷️ handleModelNameUpdate called:", { oldName, newName });
 
-      const trimmedNewName = newName.trim();
-      const node = reactFlowNodes.find((n) => n.id === oldName);
-      if (!node) {
-        console.warn(`⚠️ Node ${oldName} not found for name update`);
+      if (oldName === newName || !newName.trim()) {
+        console.warn("⚠️ Model name update skipped:", {
+          oldName,
+          newName,
+          trimmed: newName.trim(),
+        });
         return;
       }
 
-      console.log(`📝 Updating model name: ${oldName} -> ${trimmedNewName}`);
+      const trimmedNewName = newName.trim();
 
-      // Mark as WebSocket update to prevent echo
-      isUpdatingFromWebSocketRef.current = true;
+      // FIX: Tìm node theo cả oldName và data.name để tránh race condition
+      console.log(reactFlowNodes);
+      let node = reactFlowNodes.find((n) => n.id === oldName);
+      if (!node) {
+        // Fallback: tìm theo data.name nếu không tìm thấy theo oldName
+        node = reactFlowNodes.find((n) => n.data.name === oldName);
+        console.log("🔍 Fallback node search result:", !!node);
+      }
+
+      if (!node) {
+        console.warn(`⚠️ Node not found for name update:`, {
+          oldName,
+          availableNodes: reactFlowNodes.map((n) => ({
+            id: n.id,
+            dataName: n.data.name,
+          })),
+        });
+        return;
+      }
+
+      console.log(`📝 Found node, updating: ${oldName} -> ${trimmedNewName}`);
 
       updateModelName(oldName, trimmedNewName);
 
@@ -155,11 +176,6 @@ export const useSchemaVisualizer = () => {
           newModelName: trimmedNewName,
         });
       }
-
-      // Reset flag after a short delay
-      setTimeout(() => {
-        isUpdatingFromWebSocketRef.current = false;
-      }, 100);
     },
     [reactFlowNodes, updateModelName, sendUpdateModelName, isConnected]
   );

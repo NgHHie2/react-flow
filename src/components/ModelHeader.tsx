@@ -21,6 +21,7 @@ export const ModelHeader: React.FC<ModelHeaderProps> = ({
   canDelete = true,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [isEditing, setIsEditing] = useState(false); // Thêm dòng này
 
   const handleNameUpdate = (newName: string) => {
     if (onModelNameUpdate) {
@@ -59,6 +60,8 @@ export const ModelHeader: React.FC<ModelHeaderProps> = ({
             color="white"
             minWidth="100px"
             maxWidth="200px"
+            isEditing={isEditing} // Thêm dòng này
+            onEditingChange={setIsEditing}
           />
         </Box>
 
@@ -75,7 +78,7 @@ export const ModelHeader: React.FC<ModelHeaderProps> = ({
       </Flex>
 
       {/* Delete Button - Show on hover */}
-      {isHovered && canDelete && (
+      {isHovered && canDelete && !isEditing && (
         <Box position="absolute" right="4px" top="4px" zIndex={10}>
           <Tooltip label="Delete table" fontSize="xs">
             <IconButton
