@@ -84,14 +84,41 @@ class WebSocketService {
   }
 
   private createClient(): Client {
+    const socket = new SockJS(WS_CONFIG.url);
     return new Client({
-      webSocketFactory: () => new SockJS(WS_CONFIG.url),
+      webSocketFactory: () => socket,
       connectHeaders: {},
       debug: createDebugLogger(),
       reconnectDelay: WS_CONFIG.reconnectDelay,
       heartbeatIncoming: WS_CONFIG.heartbeatInterval,
       heartbeatOutgoing: WS_CONFIG.heartbeatInterval,
-      onConnect: this.handleConnect.bind(this),
+      onConnect: (frame) => {
+        // Lấy sessionId từ SockJS transport URL
+        let sessionId = null;
+
+        try {
+          // @ts-ignore - SockJS internal property
+          const transportUrl = socket._transport?.url;
+          console.log("🔍 SockJS transport URL:", transportUrl);
+
+          if (transportUrl) {
+            // Extract session ID từ URL pattern: .../sessionId/websocket
+            const match = transportUrl.match(/\/([^/]+)\/websocket$/);
+            if (match && match[1]) {
+              sessionId = match[1];
+              console.log("🆔 Extracted session ID:", sessionId);
+            }
+          }
+        } catch (error) {
+          console.error("❌ Error extracting session ID:", error);
+        }
+
+        // Set session ID vào state
+        this.state.sessionId = sessionId;
+
+        // Gọi handleConnect
+        this.handleConnect(frame);
+      },
       onDisconnect: this.handleDisconnect.bind(this),
       onStompError: this.handleStompError.bind(this),
       onWebSocketError: this.handleWebSocketError.bind(this),
@@ -100,14 +127,26 @@ class WebSocketService {
 
   private handleConnect(frame: any): void {
     console.log("✅ Connected to WebSocket");
+
     this.state.connected = true;
     this.state.reconnectAttempts = 0;
-    this.state.sessionId = this.client?.connectedVersion || null;
 
-    console.log(`🆔 Session ID: ${this.state.sessionId}`);
+    // Session ID đã được set trong onConnect callback từ SockJS transport
+    if (this.state.sessionId) {
+      console.log(`🆔 Using SockJS session ID: ${this.state.sessionId}`);
+    } else {
+      console.warn("⚠️ No session ID found from SockJS transport");
+    }
 
+    // Notify handlers that connection is established
     this.handlers.onConnect?.();
-    this.subscribeToUpdates();
+
+    // Subscribe to updates if we have session ID
+    if (this.state.sessionId) {
+      this.subscribeToUpdates();
+    } else {
+      console.error("❌ Cannot subscribe without session ID");
+    }
   }
 
   private handleDisconnect(): void {
@@ -165,13 +204,20 @@ class WebSocketService {
   }
 
   private subscribeToUpdates(): void {
+    console.log(this.client);
+    console.log(this.state.connected);
     if (!this.client || !this.state.connected) return;
 
     try {
+      let sessionId = this.state.sessionId;
+      console.log(`/user/${sessionId}/queue/schema-updates`);
       // Subscribe to schema updates
-      this.client.subscribe(TOPICS.schemaUpdates, (message) => {
-        this.handleMessage(message.body);
-      });
+      this.client.subscribe(
+        `/user/${sessionId}/queue/schema-updates`,
+        (message) => {
+          this.handleMessage(message.body);
+        }
+      );
 
       // Subscribe to personal error queue
       this.client.subscribe(TOPICS.userErrors, (message) => {

@@ -378,7 +378,7 @@ export const useSchemaVisualizer = () => {
   const edgesData = useMemo(() => {
     if (reactFlowNodes.length === 0) return [];
 
-    console.log("🔗 Calculating edges from fingerprint:", edgesFingerprint);
+    // console.log("🔗 Calculating edges from fingerprint:", edgesFingerprint);
 
     const nodeMap = new Map(reactFlowNodes.map((node) => [node.id, node]));
     const newEdges: Edge[] = [];

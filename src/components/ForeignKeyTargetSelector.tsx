@@ -93,10 +93,10 @@ export const ForeignKeyTargetSelector: React.FC<
       return;
     }
 
-    console.log(
-      "🔍 ForeignKeyTargetSelector - Recalculating PKs, key:",
-      pkDataKey
-    );
+    // console.log(
+    //   "🔍 ForeignKeyTargetSelector - Recalculating PKs, key:",
+    //   pkDataKey
+    // );
 
     allModels.forEach((model, modelIndex) => {
       console.log(`🔍 Model ${modelIndex}:`, {
