@@ -96,9 +96,9 @@ export const routeMessage = (
   // CHỈ FILTER CHO POSITION UPDATES để tránh echo khi drag
   // Các update khác như ADD_ATTRIBUTE, ADD_MODEL thì tất cả clients đều nhận
   const shouldFilterForCurrentClient =
-    response.type === "NODE_POSITION_UPDATE" &&
+    // response.type === "NODE_POSITION_UPDATE" &&
     response.sessionId === currentSessionId;
-
+  console.log("wtf: {} {}", response.sessionId, currentSessionId);
   if (shouldFilterForCurrentClient) {
     console.log(`⏸️ Filtering ${response.type} for current client`);
     return;

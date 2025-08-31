@@ -224,20 +224,19 @@ export const useSchemaVisualizer = () => {
             )
         );
 
-      if (hasConnections) {
-        console.warn("❌ Cannot delete model with connections:", modelName);
-        return;
-      }
+      // if (hasConnections) {
+      //   console.warn("❌ Cannot delete model with connections:", modelName);
+      //   return;
+      // }
 
       console.log(`🗑️ Deleting model: ${modelName}, ID: ${node.data.id}`);
 
       // Gửi WebSocket với cả modelName và modelId
-      if (isConnected) {
-        sendDeleteModel({
-          modelId: node.data.id,
-          modelName: modelName,
-        });
-      }
+
+      sendDeleteModel({
+        modelId: node.data.id,
+        modelName: modelName,
+      });
     },
     [reactFlowNodes, sendDeleteModel, isConnected]
   );

@@ -109,14 +109,6 @@ export const useNodeHandlers = ({
             return node;
           }
 
-          console.log("🔍 Found attribute to toggle:", {
-            id: currentAttr.id,
-            name: currentAttr.name,
-            currentPK: currentAttr.isPrimaryKey,
-            currentFK: currentAttr.isForeignKey,
-            targetType: keyType,
-          });
-
           const updatedAttributes = node.data.attributes.map((attr: any) => {
             if (attr.id !== attributeId) return attr;
 
@@ -124,23 +116,23 @@ export const useNodeHandlers = ({
             if (keyType === "PRIMARY") {
               return {
                 ...attr,
-                isPrimaryKey: true,
-                isForeignKey: false,
+                isPrimaryKey: attr.isPrimaryKey,
+                isForeignKey: attr.isForeignKey,
                 connection: undefined,
               };
             } else if (keyType === "FOREIGN") {
               return {
                 ...attr,
-                isPrimaryKey: false,
-                isForeignKey: true,
-                // Keep connection if exists
+                isPrimaryKey: attr.isPrimaryKey,
+                isForeignKey: attr.isForeignKey,
+                connection: undefined,
               };
             } else {
               // NORMAL
               return {
                 ...attr,
-                isPrimaryKey: false,
-                isForeignKey: false,
+                isPrimaryKey: attr.isPrimaryKey,
+                isForeignKey: attr.isForeignKey,
                 connection: undefined,
               };
             }

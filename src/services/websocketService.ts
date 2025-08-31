@@ -187,6 +187,7 @@ class WebSocketService {
 
   private handleMessage(messageBody: string): void {
     const response = parseWebSocketMessage(messageBody);
+    console.log("buc vcl");
     if (response) {
       routeMessage(response, this.handlers, this.state.sessionId);
     }

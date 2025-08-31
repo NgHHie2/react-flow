@@ -93,14 +93,27 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
     [sortedAttributes, data.onFieldUpdate]
   );
 
+  // src/SchemaVisualizer/ModelNode.tsx - Fixed handleToggleKeyType
+  // Replace the handleToggleKeyType function in ModelNode.tsx with this:
+
   const handleToggleKeyType = useCallback(
     (
       modelName: string,
-      fieldIndex: number,
+      attributeId: number, // ✅ FIXED: Now accepts attributeId instead of fieldIndex
       keyType: "NORMAL" | "PRIMARY" | "FOREIGN"
     ) => {
-      const attribute = sortedAttributes[fieldIndex];
-      if (!attribute?.id || !data.onToggleKeyType) return;
+      // ✅ Find attribute by ID instead of index
+      const attribute = sortedAttributes.find(
+        (attr) => attr.id === attributeId
+      );
+
+      if (!attribute || !data.onToggleKeyType) {
+        console.warn("❌ Attribute not found or handler missing:", {
+          attributeId,
+          hasHandler: !!data.onToggleKeyType,
+        });
+        return;
+      }
 
       // Check if this actually changes the key type
       const currentType = attribute.isPrimaryKey
@@ -110,7 +123,11 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
         : "NORMAL";
 
       if (currentType !== keyType) {
-        console.log(`🔑 Key type toggle: ${currentType} -> ${keyType}`);
+        console.log(`🔑 Key type toggle: ${currentType} -> ${keyType}`, {
+          modelName: data.name,
+          attributeId: attribute.id,
+          attributeName: attribute.name,
+        });
         data.onToggleKeyType(data.name, attribute.id, keyType);
       }
     },
@@ -204,33 +221,16 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
       )
     );
 
-    if (hasOutgoingConnections || hasIncomingConnections) {
-      console.warn(`❌ Cannot delete ${data.name}: has connections`);
-      return;
-    }
+    // if (hasOutgoingConnections || hasIncomingConnections) {
+    //   console.warn(`❌ Cannot delete ${data.name}: has connections`);
+    //   return;
+    // }
 
     console.log(`🗑️ Deleting model: ${data.name}`);
     console.log(data);
     data.onDeleteModel(data.name);
+    console.log(data.onDeleteModel);
   }, [data.onDeleteModel, data.attributes, data.name, allModels]);
-
-  // ✅ Smarter can delete logic
-  const canDelete = useMemo(() => {
-    if (!data.attributes) return false;
-
-    // Can delete if:
-    // 1. Only has 1 attribute (the default id field)
-    // 2. No outgoing connections
-    // 3. No incoming connections from other models
-    const hasConnections = data.attributes.some((attr) => attr.connection);
-    const isReferenced = allModels.some((model) =>
-      model.attributes?.some(
-        (attr) => attr.connection?.targetModelName === data.name
-      )
-    );
-
-    return data.attributes.length <= 1 && !hasConnections && !isReferenced;
-  }, [data.attributes, data.name, allModels]);
 
   // ✅ Generate unique keys for attributes to prevent re-rendering issues
   const attributeKeys = useMemo(() => {
@@ -261,7 +261,7 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
         model={data}
         onModelNameUpdate={handleModelNameUpdate}
         onDeleteModel={handleDeleteModel}
-        canDelete={canDelete}
+        canDelete={true}
       />
 
       {/* Model Attributes/Fields */}

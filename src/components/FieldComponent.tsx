@@ -16,7 +16,7 @@ interface FieldComponentProps {
   onFieldTypeUpdate: (fieldIndex: number, newType: string) => void;
   onToggleKeyType: (
     modelName: string,
-    fieldIndex: number,
+    attributeId: number,
     newKeyType: "NORMAL" | "PRIMARY" | "FOREIGN"
   ) => void;
   onDeleteAttribute: (attributeId: number) => void;
@@ -80,7 +80,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
 
   // Get next key type in cycle: NORMAL -> PRIMARY -> FOREIGN -> NORMAL
   const getNextKeyType = (current: KeyType): KeyType => {
-    console.log("🔄 Current key type:", current);
+    // console.log("🔄 Current key type:", current);
     switch (current) {
       case "NORMAL":
         return "PRIMARY";
@@ -134,14 +134,6 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
 
     const currentType = getCurrentKeyType();
     const nextType = getNextKeyType(currentType);
-
-    console.log(`🔄 Toggle ${attribute.name}:`, {
-      attributeId: attribute.id,
-      currentType,
-      nextType,
-      currentPK: isPK,
-      currentFK: isFK,
-    });
 
     // ⭐ QUAN TRỌNG: Gọi với attributeId thay vì fieldIndex
     onToggleKeyType(modelName, attribute.id, nextType);

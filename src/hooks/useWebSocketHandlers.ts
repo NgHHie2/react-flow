@@ -141,27 +141,19 @@ export const useWebSocketHandlers = ({
   // Sửa handleTogglePrimaryKey trong useWebSocketHandlers.ts - fix state logic
   const handleTogglePrimaryKey = useCallback(
     (data: any) => {
-      console.log("🔑 Received primary key toggle from OTHER client:", data);
-
       setReactFlowNodes((currentNodes: any) => {
         const updatedNodes = currentNodes.map((node: any) => {
           if (node.id !== data.modelName) return node;
 
           const updatedAttributes = node.data.attributes.map((attr: any) => {
             if (attr.id === data.attributeId) {
-              console.log("🔄 Toggling PK for attribute:", {
-                id: attr.id,
-                name: attr.name,
-                currentPK: attr.isPrimaryKey,
-                willBecomePK: !attr.isPrimaryKey,
-              });
+              console.log(attr);
 
               return {
                 ...attr,
-                isPrimaryKey: !attr.isPrimaryKey, // Toggle PK
-                // If becoming PK, remove FK status and connection
-                isForeignKey: !attr.isPrimaryKey ? false : attr.isForeignKey,
-                connection: !attr.isPrimaryKey ? undefined : attr.connection,
+                isPrimaryKey: !attr.isPrimaryKey,
+                isForeignKey: false,
+                connection: undefined,
               };
             }
             return attr;
@@ -195,26 +187,18 @@ export const useWebSocketHandlers = ({
 
   const handleToggleForeignKey = useCallback(
     (data: any) => {
-      console.log("🔗 Received foreign key toggle from OTHER client:", data);
-
       setReactFlowNodes((currentNodes: any) => {
         const updatedNodes = currentNodes.map((node: any) => {
           if (node.id !== data.modelName) return node;
 
           const updatedAttributes = node.data.attributes.map((attr: any) => {
             if (attr.id === data.attributeId) {
-              console.log("🔄 Toggling FK for attribute:", {
-                id: attr.id,
-                name: attr.name,
-                currentFK: attr.isForeignKey,
-                willBecomeFK: !attr.isForeignKey,
-              });
+              console.log(attr);
 
               return {
                 ...attr,
                 isForeignKey: !attr.isForeignKey, // Toggle FK
-                // If becoming FK, remove PK status
-                isPrimaryKey: !attr.isForeignKey ? false : attr.isPrimaryKey,
+                isPrimaryKey: false,
               };
             }
             return attr;
@@ -304,10 +288,49 @@ export const useWebSocketHandlers = ({
 
   const handleDeleteAttribute = useCallback(
     (data: any) => {
-      console.log("➖ Received delete attribute from OTHER client:", data);
-      deleteAttribute(data.modelName, data.attributeId);
+      console.log("➕ Received delete attribute response from backend:", data);
+
+      if (data.attributeId) {
+        console.log("✅ Deleting attribute with real ID:", data.attributeId);
+
+        setReactFlowNodes((currentNodes: any) => {
+          const updatedNodes = currentNodes.map((node: any) => {
+            if (node.id !== data.modelName) return node;
+
+            const updatedAttributes = node.data.attributes.filter(
+              (attr: any) => attr.id !== data.attributeId
+            );
+
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                attributes: updatedAttributes,
+                // ⭐ QUAN TRỌNG: Update allModels để tất cả nodes biết về attribute mới
+                allModels: currentNodes.map((n: any) => ({
+                  ...n.data,
+                  attributes:
+                    n.id === data.modelName
+                      ? updatedAttributes
+                      : n.data.attributes,
+                })),
+                lastAttributeUpdate: Date.now(), // Force re-render
+              },
+            };
+          });
+
+          // ⭐ Update allModels cho TẤT CẢ nodes, không chỉ node hiện tại
+          return updatedNodes.map((node: any) => ({
+            ...node,
+            data: {
+              ...node.data,
+              allModels: updatedNodes.map((n: any) => n.data),
+            },
+          }));
+        });
+      }
     },
-    [deleteAttribute]
+    [setReactFlowNodes]
   );
 
   // Sửa handleAddModel trong useWebSocketHandlers.ts - thêm callbacks ngay lập tức
