@@ -380,7 +380,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
             height="6px"
             bg={attribute.connection?.strokeColor || "#4A90E2"}
             borderRadius="50%"
-            title={`Connected to ${attribute.connection?.targetModelName}.${attribute.connection?.targetAttributeName}`}
+            title={`Connected to ${attribute.connection?.targetModelId}.${attribute.connection?.targetAttributeName}`}
           />
         )}
 
@@ -420,7 +420,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
             currentConnection={
               attribute.connection
                 ? {
-                    targetModelName: attribute.connection.targetModelName,
+                    targetModelName: attribute.connection.targetModelId,
                     targetAttributeName:
                       attribute.connection.targetAttributeName,
                   }

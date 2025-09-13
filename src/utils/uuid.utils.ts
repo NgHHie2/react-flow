@@ -7,13 +7,13 @@ export const generateUUID = (): string => {
 };
 
 export const generateModelId = (): string => {
-  return `model_${generateUUID()}`;
+  return generateUUID();
 };
 
 export const generateAttributeId = (): string => {
-  return `attr_${generateUUID()}`;
+  return generateUUID();
 };
 
 export const generateConnectionId = (): string => {
-  return `conn_${generateUUID()}`;
+  return generateUUID();
 };

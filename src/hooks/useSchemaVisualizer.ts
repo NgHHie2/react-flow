@@ -16,6 +16,7 @@ import { useNodeHandlers } from "./useNodeHandlers";
 import { useDragHandlers } from "./useDragHandlers";
 import { calculateOptimalHandlePositions } from "../utils/handlePositioning";
 import { Attribute } from "../SchemaVisualizer/SchemaVisualizer.types";
+import { generateModelId } from "../utils/uuid.utils";
 
 export const useSchemaVisualizer = () => {
   const {
@@ -117,17 +118,16 @@ export const useSchemaVisualizer = () => {
   const handleAddModel = useCallback(() => {
     if (!schemaInfo) return;
 
-    const timestamp = Date.now();
-    const newModelName = `Table_${timestamp}`;
+    const newModelId = generateModelId();
     const positionX = Math.random() * 400 + 100;
     const positionY = Math.random() * 300 + 100;
 
-    console.log("🆕 Adding new model:", { newModelName, positionX, positionY });
+    console.log("🆕 Adding new model:", { newModelId, positionX, positionY });
 
     // KHÔNG cập nhật UI ngay, chỉ gửi WebSocket và chờ response
     if (isConnected) {
       sendAddModel({
-        modelName: newModelName,
+        modelId: newModelId,
         positionX,
         positionY,
         databaseDiagramId: schemaInfo.id,
@@ -291,7 +291,7 @@ export const useSchemaVisualizer = () => {
   const nodesFingerprint = useMemo(() => {
     return nodes.map((node) => ({
       id: node.id,
-      name: node.data.name,
+      name: node.id,
       attributesHash:
         node.data.attributes
           ?.map(
@@ -366,7 +366,7 @@ export const useSchemaVisualizer = () => {
       attributes.forEach((attribute: Attribute) => {
         if (attribute.connection) {
           connections.push(
-            `${node.id}:${attribute.name}->${attribute.connection.targetModelName}:${attribute.connection.targetAttributeName}`
+            `${node.id}:${attribute.name}->${attribute.connection.targetModelId}:${attribute.connection.targetAttributeName}`
           );
         }
       });
@@ -390,11 +390,11 @@ export const useSchemaVisualizer = () => {
 
         const connection = attribute.connection;
         const sourceNode = nodeMap.get(node.id);
-        const targetNode = nodeMap.get(connection.targetModelName);
+        const targetNode = nodeMap.get(connection.targetModelId);
 
         if (!sourceNode || !targetNode) {
           console.warn(
-            `⚠️ Missing node for edge: ${node.id} -> ${connection.targetModelName}`
+            `⚠️ Missing node for edge: ${node.id} -> ${connection.targetModelId}`
           );
           return;
         }
@@ -407,12 +407,12 @@ export const useSchemaVisualizer = () => {
             connection.targetAttributeName
           );
 
-          const edgeId = `${node.id}-${attribute.name}-${connection.targetModelName}`;
+          const edgeId = `${node.id}-${attribute.name}-${connection.targetModelId}`;
 
           newEdges.push({
             id: edgeId,
             source: node.id,
-            target: connection.targetModelName,
+            target: connection.targetModelId,
             sourceHandle: handlePositions.sourceHandleId,
             targetHandle: handlePositions.targetHandleId,
             animated: connection.isAnimated || true,

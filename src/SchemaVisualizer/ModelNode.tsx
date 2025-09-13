@@ -212,14 +212,14 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
     if (!data.onDeleteModel) return;
 
     // More thorough connection checking
-    const hasOutgoingConnections = data.attributes?.some(
-      (attr) => attr.connection
-    );
-    const hasIncomingConnections = allModels.some((model) =>
-      model.attributes?.some(
-        (attr) => attr.connection?.targetModelName === data.name
-      )
-    );
+    // const hasOutgoingConnections = data.attributes?.some(
+    //   (attr) => attr.connection
+    // );
+    // const hasIncomingConnections = allModels.some((model) =>
+    //   model.attributes?.some(
+    //     (attr) => attr.connection?.targetModelId === data.name
+    //   )
+    // );
 
     // if (hasOutgoingConnections || hasIncomingConnections) {
     //   console.warn(`❌ Cannot delete ${data.name}: has connections`);

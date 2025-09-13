@@ -79,7 +79,7 @@ export const ConnectionInfo: React.FC<ConnectionInfoProps> = ({
         <HStack justify="space-between" width="100%">
           <Text color="gray.300">To:</Text>
           <Text fontWeight="bold" color={connection.strokeColor}>
-            {connection.targetModelName}.{connection.targetAttributeName}
+            {connection.targetModelId}.{connection.targetAttributeName}
           </Text>
         </HStack>
       </VStack>

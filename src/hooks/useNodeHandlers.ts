@@ -33,7 +33,7 @@ export const useNodeHandlers = ({
 
   // Field update handler
   const handleFieldUpdate = useCallback(
-    (attributeId: number, attributeName: string, attributeType: string) => {
+    (attributeId: string, attributeName: string, attributeType: string) => {
       console.log("📤 Sending field update:", {
         attributeId,
         attributeName,

@@ -17,7 +17,7 @@ export const createNodePositionUpdate = (node: Node): NodePositionUpdate => ({
 
 export const createFieldUpdate = (
   nodes: Node[],
-  attributeId: number,
+  attributeId: string,
   attributeName: string,
   attributeType: string
 ): FieldUpdate | null => {
@@ -53,7 +53,7 @@ export const convertToReactFlowData = (
 ) => {
   // Create nodes from models
   const nodes: Node[] = data.models.map((model: Model) => ({
-    id: model.name,
+    id: model.id,
     position: { x: model.positionX, y: model.positionY },
     data: {
       ...model,
@@ -70,16 +70,18 @@ export const convertToReactFlowData = (
     model.attributes.forEach((attribute) => {
       if (attribute.connection) {
         const connection = attribute.connection;
-        const edgeId = `${model.name}-${attribute.name}-${connection.targetModelName}`;
+        const edgeId = connection.id;
 
         // Create source and target handle IDs
-        const sourceHandleId = `${model.name}-${attribute.name}-source`;
-        const targetHandleId = `${connection.targetModelName}-${connection.targetAttributeName}-target`;
-
+        const sourceHandleId = `${model.id}-${attribute.name}-source`;
+        const targetHandleId = `${connection.targetModelId}-${connection.targetAttributeName}-target`;
+        console.log("connectionId: " + connection.id);
+        console.log("source: " + model.id);
+        console.log("target: " + connection.targetModelId);
         edges.push({
           id: edgeId,
-          source: model.name,
-          target: connection.targetModelName,
+          source: model.id,
+          target: connection.targetModelId,
           sourceHandle: sourceHandleId,
           targetHandle: targetHandleId,
           animated: true,
@@ -111,7 +113,7 @@ export const getConnectionInfo = (attribute: Attribute) => {
   if (!attribute.connection) return null;
 
   return {
-    targetModel: attribute.connection.targetModelName,
+    targetModel: attribute.connection.targetModelId,
     targetField: attribute.connection.targetAttributeName,
     connectionType: attribute.connection.connectionType,
     color: attribute.connection.strokeColor,
@@ -122,7 +124,7 @@ export const getConnectionInfo = (attribute: Attribute) => {
 export const isChildModel = (model: Model, allModels: Model[]): boolean => {
   return allModels.some((otherModel) =>
     otherModel.attributes.some(
-      (attr) => attr.connection?.targetModelName === model.name
+      (attr) => attr.connection?.targetModelId === model.name
     )
   );
 };

@@ -270,7 +270,7 @@ export const useSchemaData = () => {
 
   const addModel = useCallback(
     async (
-      modelName: string,
+      modelId: string,
       positionX: number,
       positionY: number,
       modelData: any // Full model data với real ID từ backend
@@ -280,7 +280,7 @@ export const useSchemaData = () => {
       setNodes((nds) => [
         ...nds,
         {
-          id: modelName,
+          id: modelId,
           position: { x: positionX, y: positionY },
           data: modelData, // Sử dụng data thật từ backend
           type: "model",
@@ -289,7 +289,7 @@ export const useSchemaData = () => {
 
       toast({
         title: "Table Added",
-        description: `Added new table: ${modelName}`,
+        description: `Added new table: ${modelId}`,
         status: "success",
         duration: 2000,
         isClosable: true,
