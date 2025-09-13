@@ -7,24 +7,24 @@ export interface BaseUpdate {
 
 export interface NodePositionUpdate extends BaseUpdate {
   nodeId: string;
-  modelId: number;
+  modelId: string;
   positionX: number;
   positionY: number;
   diagramId: number;
 }
 
 export interface FieldUpdate extends BaseUpdate {
-  attributeId: number;
+  attributeId: string;
   attributeName: string;
   attributeType: string;
   modelName: string;
-  modelId: number;
+  modelId: string;
 }
 
 export interface ToggleKeyUpdate extends BaseUpdate {
   modelName: string;
-  modelId: number;
-  attributeId: number;
+  modelId: string;
+  attributeId: string;
 }
 
 export type TogglePrimaryKeyUpdate = ToggleKeyUpdate;
@@ -32,27 +32,27 @@ export type ToggleForeignKeyUpdate = ToggleKeyUpdate;
 
 export interface AddAttributeUpdate extends BaseUpdate {
   modelName: string;
-  modelId: number;
+  modelId: string;
   attributeName: string;
   dataType: string;
 }
 
 export interface DeleteAttributeUpdate extends BaseUpdate {
   modelName: string;
-  modelId: number;
-  attributeId: number;
+  modelId: string;
+  attributeId: string;
 }
 
 export interface ForeignKeyConnectionUpdate extends BaseUpdate {
-  attributeId: number;
+  attributeId: string;
   targetModelName: string;
   targetAttributeName: string;
-  targetAttributeId: number;
+  targetAttributeId: string;
   foreignKeyName: string;
 }
 
 export interface ForeignKeyDisconnectUpdate extends BaseUpdate {
-  attributeId: number;
+  attributeId: string;
 }
 
 export interface AddModelUpdate extends BaseUpdate {
@@ -63,13 +63,13 @@ export interface AddModelUpdate extends BaseUpdate {
 }
 
 export interface UpdateModelNameUpdate extends BaseUpdate {
-  modelId: number;
+  modelId: string;
   oldModelName: string;
   newModelName: string;
 }
 
 export interface DeleteModelUpdate extends BaseUpdate {
-  modelId: number;
+  modelId: string;
   modelName: string;
 }
 

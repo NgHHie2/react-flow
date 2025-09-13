@@ -5,6 +5,7 @@ import { Node, Edge } from "reactflow";
 import { schemaApiService } from "../services/schemaApiService";
 import { convertToReactFlowData } from "../utils/schemaUtils";
 import { SchemaData } from "../SchemaVisualizer/SchemaVisualizer.types";
+import { generateAttributeId } from "../utils/uuid.utils";
 
 export const useSchemaData = () => {
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -87,7 +88,7 @@ export const useSchemaData = () => {
   const updateField = useCallback(
     async (
       modelName: string,
-      attributeId: number,
+      attributeId: string,
       attributeName: string,
       attributeType: string
     ) => {
@@ -162,7 +163,7 @@ export const useSchemaData = () => {
   );
 
   const toggleForeignKey = useCallback(
-    async (modelName: string, attributeId: number) => {
+    async (modelName: string, attributeId: string) => {
       console.log(`🔗 Toggling foreign key for ${attributeId} in ${modelName}`);
 
       setNodes((prevNodes) =>
@@ -195,14 +196,21 @@ export const useSchemaData = () => {
   );
 
   const addAttribute = useCallback(
-    async (
-      modelName: string,
-      attributeName: string,
-      dataType: string,
-      attributeData: any // Full attribute data với real ID từ backend
-    ) => {
-      console.log("✅ Adding attribute with real data:", attributeData);
+    async (modelName: string, attributeName: string, dataType: string) => {
+      // Generate UUID for new attribute
+      const newAttributeId = generateAttributeId();
 
+      const newAttribute = {
+        id: newAttributeId,
+        name: attributeName,
+        dataType: dataType,
+        isNullable: true,
+        isPrimaryKey: false,
+        isForeignKey: false,
+        attributeOrder: 0,
+      };
+
+      // Immediately add to UI
       setNodes((nds) =>
         nds.map((node) =>
           node.id === modelName
@@ -210,7 +218,7 @@ export const useSchemaData = () => {
                 ...node,
                 data: {
                   ...node.data,
-                  attributes: [...node.data.attributes, attributeData],
+                  attributes: [...node.data.attributes, newAttribute],
                 },
               }
             : node
@@ -224,6 +232,8 @@ export const useSchemaData = () => {
         duration: 2000,
         isClosable: true,
       });
+
+      return newAttributeId; // Return the generated ID
     },
     [toast]
   );

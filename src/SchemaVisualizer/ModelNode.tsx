@@ -11,24 +11,24 @@ interface ModelNodeData extends Model {
   getAllModels?: () => Model[];
   allModels?: Model[];
   onFieldUpdate?: (
-    fieldId: number,
+    fieldId: string,
     fieldName: string,
     fieldType: string
   ) => void;
   onToggleKeyType?: (
     modelName: string,
-    attributeId: number,
+    attributeId: string,
     keyType: "NORMAL" | "PRIMARY" | "FOREIGN"
   ) => void;
   onAddAttribute?: (modelName: string) => void;
-  onDeleteAttribute?: (modelName: string, attributeId: number) => void;
+  onDeleteAttribute?: (modelName: string, attributeId: string) => void;
   onForeignKeyTargetSelect?: (
-    attributeId: number,
+    attributeId: string,
     targetModelName: string,
     targetAttributeName: string,
-    targetAttributeId: number
+    targetAttributeId: string
   ) => void;
-  onForeignKeyDisconnect?: (attributeId: number) => void;
+  onForeignKeyDisconnect?: (attributeId: string) => void;
   onModelNameUpdate?: (oldName: string, newName: string) => void;
   onDeleteModel?: (modelName: string) => void;
   // Add update tracking fields
@@ -99,7 +99,7 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
   const handleToggleKeyType = useCallback(
     (
       modelName: string,
-      attributeId: number, // ✅ FIXED: Now accepts attributeId instead of fieldIndex
+      attributeId: string, // ✅ FIXED: Now accepts attributeId instead of fieldIndex
       keyType: "NORMAL" | "PRIMARY" | "FOREIGN"
     ) => {
       // ✅ Find attribute by ID instead of index
@@ -142,7 +142,7 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
   }, [data.onAddAttribute, data.name]);
 
   const handleDeleteAttribute = useCallback(
-    (attributeId: number) => {
+    (attributeId: string) => {
       if (data.onDeleteAttribute) {
         console.log(`➖ Deleting attribute ${attributeId} from ${data.name}`);
         data.onDeleteAttribute(data.name, attributeId);
@@ -153,10 +153,10 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
 
   const handleForeignKeyTargetSelect = useCallback(
     (
-      attributeId: number,
+      attributeId: string,
       targetModelName: string,
       targetAttributeName: string,
-      targetAttributeId: number
+      targetAttributeId: string
     ) => {
       if (data.onForeignKeyTargetSelect) {
         console.log(
@@ -174,7 +174,7 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
   );
 
   const handleForeignKeyDisconnect = useCallback(
-    (attributeId: number) => {
+    (attributeId: string) => {
       if (data.onForeignKeyDisconnect) {
         console.log(`🔓 FK disconnect: ${attributeId}`);
         data.onForeignKeyDisconnect(attributeId);

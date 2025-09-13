@@ -16,17 +16,17 @@ interface FieldComponentProps {
   onFieldTypeUpdate: (fieldIndex: number, newType: string) => void;
   onToggleKeyType: (
     modelName: string,
-    attributeId: number,
+    attributeId: string,
     newKeyType: "NORMAL" | "PRIMARY" | "FOREIGN"
   ) => void;
-  onDeleteAttribute: (attributeId: number) => void;
+  onDeleteAttribute: (attributeId: string) => void;
   onForeignKeyTargetSelect: (
-    attributeId: number,
+    attributeId: string,
     targetModelName: string,
     targetAttributeName: string,
-    targetAttributeId: number
+    targetAttributeId: string
   ) => void;
-  onForeignKeyDisconnect: (attributeId: number) => void;
+  onForeignKeyDisconnect: (attributeId: string) => void;
 }
 
 const ROW_HEIGHT = 32;
@@ -157,7 +157,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
   const handleForeignKeyTargetSelectLocal = (
     targetModelName: string,
     targetAttributeName: string,
-    targetAttributeId: number
+    targetAttributeId: string
   ) => {
     onForeignKeyTargetSelect(
       attribute.id,

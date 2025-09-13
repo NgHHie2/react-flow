@@ -18,12 +18,12 @@ import { Model } from "../SchemaVisualizer/SchemaVisualizer.types";
 interface PrimaryKeyOption {
   modelName: string;
   attributeName: string;
-  attributeId: number;
+  attributeId: string;
 }
 
 interface ForeignKeyTargetSelectorProps {
   currentModelName: string;
-  currentAttributeId: number;
+  currentAttributeId: string;
   currentConnection?: {
     targetModelName: string;
     targetAttributeName: string;
@@ -32,7 +32,7 @@ interface ForeignKeyTargetSelectorProps {
   onTargetSelect: (
     targetModelName: string,
     targetAttributeName: string,
-    targetAttributeId: number
+    targetAttributeId: string
   ) => void;
   onDisconnect: () => void;
   inline?: boolean;

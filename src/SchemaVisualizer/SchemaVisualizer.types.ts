@@ -1,6 +1,6 @@
 // src/SchemaVisualizer/SchemaVisualizer.types.ts
 export interface Connection {
-  id: number;
+  id: string;
   connectionType: string;
   targetModelName: string;
   targetAttributeName: string;
@@ -17,7 +17,7 @@ export interface Connection {
 }
 
 export interface Attribute {
-  id: number;
+  id: string;
   name: string;
   dataType: string;
   length?: number;
@@ -38,7 +38,7 @@ export interface Attribute {
 }
 
 export interface Model {
-  id: number;
+  id: string;
   nodeId: string;
   name: string;
   modelType: string;
