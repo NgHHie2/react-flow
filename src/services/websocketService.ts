@@ -84,14 +84,29 @@ class WebSocketService {
   }
 
   private createClient(): Client {
+    const socket = new SockJS(WS_CONFIG.url);
     return new Client({
-      webSocketFactory: () => new SockJS(WS_CONFIG.url),
+      webSocketFactory: () => socket,
       connectHeaders: {},
       debug: createDebugLogger(),
       reconnectDelay: WS_CONFIG.reconnectDelay,
       heartbeatIncoming: WS_CONFIG.heartbeatInterval,
       heartbeatOutgoing: WS_CONFIG.heartbeatInterval,
-      onConnect: this.handleConnect.bind(this),
+      onConnect: (frame) => {
+        // lấy sessionId từ SockJS transport URL
+        // @ts-ignore vì SockJS không export type này
+        const sessionUrl = socket._transport?.url;
+        if (sessionUrl) {
+          const result = /\/([^/]+)\/websocket$/.exec(sessionUrl);
+          if (result && result[1]) {
+            const sessionId = result[1];
+            console.log("SockJS sessionId:", sessionId);
+            this.state.sessionId = sessionId;
+          }
+        }
+
+        this.handleConnect(frame);
+      },
       onDisconnect: this.handleDisconnect.bind(this),
       onStompError: this.handleStompError.bind(this),
       onWebSocketError: this.handleWebSocketError.bind(this),
@@ -102,8 +117,6 @@ class WebSocketService {
     console.log("✅ Connected to WebSocket");
     this.state.connected = true;
     this.state.reconnectAttempts = 0;
-    this.state.sessionId = this.client?.connectedVersion || null;
-
     console.log(`🆔 Session ID: ${this.state.sessionId}`);
 
     this.handlers.onConnect?.();
@@ -187,7 +200,7 @@ class WebSocketService {
 
   private handleMessage(messageBody: string): void {
     const response = parseWebSocketMessage(messageBody);
-    console.log("buc vcl");
+    console.log("state: ", this.state);
     if (response) {
       routeMessage(response, this.handlers, this.state.sessionId);
     }

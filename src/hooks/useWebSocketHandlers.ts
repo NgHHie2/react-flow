@@ -411,6 +411,8 @@ export const useWebSocketHandlers = ({
             type: "model",
           };
 
+          console.log("newnode: ", newNode);
+
           const updatedNodes = [...currentNodes, newNode];
           console.log(
             "📊 Nodes after add:",

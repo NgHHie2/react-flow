@@ -42,7 +42,7 @@ export const DESTINATIONS = {
 
 // Subscription Topics
 export const TOPICS = {
-  schemaUpdates: "/user/queue/schema-updates",
+  schemaUpdates: "/topic/schema-updates",
   userErrors: "/user/queue/errors",
 } as const;
 
