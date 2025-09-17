@@ -1,5 +1,5 @@
-// src/components/FieldComponent.tsx - Complete version with handle click FK selector
-import React, { useEffect, useRef, useState } from "react";
+// src/components/FieldComponent.tsx - Fresh version with allModels deep copy
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { Box, Flex, IconButton, Tooltip, Button } from "@chakra-ui/react";
 import { Handle, Position } from "reactflow";
 import { EditableField } from "./EditableField";
@@ -29,7 +29,6 @@ interface FieldComponentProps {
 }
 
 const ROW_HEIGHT = 32;
-
 type KeyType = "NORMAL" | "PRIMARY" | "FOREIGN";
 
 export const FieldComponent: React.FC<FieldComponentProps> = ({
@@ -48,12 +47,57 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
   const [showFKSelector, setShowFKSelector] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // ✅ Tạo deep copy của allModels để đảm bảo fresh data
+  const freshAllModels = useMemo(() => {
+    if (!allModels || !Array.isArray(allModels)) {
+      console.log("🚫 No allModels available");
+      return [];
+    }
+
+    // Deep clone allModels để tránh reference issues
+    const clonedModels = allModels.map((model) => ({
+      ...model, // ✅ Spread tất cả properties của Model
+      attributes:
+        model.attributes?.map((attr) => ({
+          ...attr, // ✅ Spread tất cả properties của Attribute
+          connection: attr.connection
+            ? {
+                ...attr.connection, // ✅ Spread tất cả properties của Connection
+              }
+            : undefined,
+        })) || [],
+    }));
+
+    console.log("🔄 FieldComponent - Created fresh allModels copy:", {
+      modelName: model.name,
+      attributeName: attribute.name,
+      originalCount: allModels.length,
+      clonedCount: clonedModels.length,
+      clonedData: clonedModels.map((m) => ({ id: m.id, name: m.name })),
+      timestamp: new Date().toISOString(),
+    });
+
+    return clonedModels;
+  }, [allModels, model.name, attribute.name]); // Re-compute khi allModels hoặc current model/attribute thay đổi
+
+  // ✅ Debug showFKSelector state changes
+  useEffect(() => {
+    console.log("🎭 showFKSelector changed:", {
+      modelName: model.name,
+      attributeName: attribute.name,
+      showFKSelector,
+      timestamp: Date.now(),
+    });
+  }, [showFKSelector, model.name, attribute.name]);
+
+  // ✅ Click outside handler
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
         dropdownRef.current &&
         !dropdownRef.current.contains(event.target as Node)
       ) {
+        console.log("🔒 Closing FK selector due to outside click");
         setShowFKSelector(false);
       }
     };
@@ -66,20 +110,18 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showFKSelector]);
+
   const isPK = attribute.isPrimaryKey;
   const isFK = attribute.isForeignKey;
   const hasConnection = !!attribute.connection;
 
-  // Determine current key type
   const getCurrentKeyType = (): KeyType => {
     if (attribute.isPrimaryKey) return "PRIMARY";
     if (attribute.isForeignKey) return "FOREIGN";
     return "NORMAL";
   };
 
-  // Get next key type in cycle: NORMAL -> PRIMARY -> FOREIGN -> NORMAL
   const getNextKeyType = (current: KeyType): KeyType => {
-    // console.log("🔄 Current key type:", current);
     switch (current) {
       case "NORMAL":
         return "PRIMARY";
@@ -92,21 +134,18 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
     }
   };
 
-  // Determine field color based on type
   const getFieldColor = () => {
-    if (isPK) return "#FFD700"; // Gold for Primary Key
-    if (isFK) return "#87CEEB"; // Sky blue for Foreign Key
-    return "white"; // Default
+    if (isPK) return "#FFD700";
+    if (isFK) return "#87CEEB";
+    return "white";
   };
 
-  // Get field icon
   const getFieldIcon = () => {
-    if (isPK) return "🔑"; // Key icon for Primary Key
-    if (isFK) return "🔗"; // Link icon for Foreign Key
+    if (isPK) return "🔑";
+    if (isFK) return "🔗";
     return null;
   };
 
-  // Get tooltip text
   const getTooltipText = () => {
     const currentType = getCurrentKeyType();
     const nextType = getNextKeyType(currentType);
@@ -130,26 +169,52 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
 
   const handleIconClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-
     const currentType = getCurrentKeyType();
     const nextType = getNextKeyType(currentType);
-
-    // ⭐ QUAN TRỌNG: Gọi với attributeId thay vì fieldIndex
     onToggleKeyType(model.id, attribute.id, nextType);
   };
 
-  // Handle click on handles - show FK selector for FK fields
   const handleRightClick = (e: React.MouseEvent) => {
-    e.preventDefault(); // Ngăn context menu mặc định
+    e.preventDefault();
     e.stopPropagation();
 
-    // Chỉ hiện FK selector nếu field này là FK
+    console.log("🖱️ Right click handler:", {
+      modelName: model.name,
+      attributeName: attribute.name,
+      isFK,
+      isPK,
+      canOpenSelector: isFK && !isPK,
+      currentShowFKSelector: showFKSelector,
+      freshAllModelsCount: freshAllModels.length,
+      freshAllModelsData: freshAllModels.map((m) => ({
+        name: m.name,
+        id: m.id,
+      })),
+    });
+
+    // Chỉ cho phép mở FK selector nếu là Foreign Key thuần túy (không phải PK)
     if (isFK && !isPK) {
-      setShowFKSelector(!showFKSelector);
+      const newState = !showFKSelector;
+      console.log("🔓 Toggling FK selector:", {
+        from: showFKSelector,
+        to: newState,
+        freshModelsWillPass: freshAllModels.map((m) => ({
+          name: m.name,
+          id: m.id,
+        })),
+      });
+      setShowFKSelector(newState);
+    } else {
+      console.log("❌ Cannot open FK selector:", {
+        isFK,
+        isPK,
+        reason: isPK ? "Is Primary Key" : !isFK ? "Not Foreign Key" : "Unknown",
+      });
     }
   };
 
   const handleFKSelectorClose = () => {
+    console.log("🔒 Manually closing FK selector");
     setShowFKSelector(false);
   };
 
@@ -157,15 +222,18 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
     targetModelId: string,
     targetAttributeId: string
   ) => {
+    console.log("🔗 FK target selected:", { targetModelId, targetAttributeId });
     onForeignKeyTargetSelect(attribute.id, targetModelId, targetAttributeId);
-    setShowFKSelector(false); // Đóng selector sau khi chọn
+    setShowFKSelector(false);
   };
 
   const handleForeignKeyDisconnectLocal = () => {
+    console.log("🔓 FK disconnected");
     onForeignKeyDisconnect(attribute.id);
-    setShowFKSelector(false); // Đóng selector sau khi disconnect
+    setShowFKSelector(false);
   };
 
+  // ✅ Create handles
   const createHandles = () => {
     const baseStyle = {
       width: "8px",
@@ -182,7 +250,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
         ? "#1770d6ff"
         : isFK && !isPK
         ? "#87CEEB"
-        : "#6B7280", // FK color khi chưa connect
+        : "#6B7280",
     };
 
     const pkStyle = {
@@ -254,6 +322,25 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
     );
   };
 
+  // ✅ Debug before rendering FK selector
+  if (isFK && !isPK) {
+    console.log(
+      "📦 About to render ForeignKeyTargetSelector with FRESH data:",
+      {
+        modelName: model.name,
+        attributeName: attribute.name,
+        freshAllModelsCount: freshAllModels.length,
+        freshAllModelsNames: freshAllModels.map((m) => m.name),
+        freshAllModelsDetails: freshAllModels.map((m) => ({
+          id: m.id,
+          name: m.name,
+          attributeCount: m.attributes?.length || 0,
+        })),
+        timestamp: Date.now(),
+      }
+    );
+  }
+
   return (
     <Box
       position="relative"
@@ -281,8 +368,8 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
                 color={getFieldColor()}
                 fontSize="12px"
                 cursor="pointer"
-                onClick={handleIconClick} // Left click - toggle key type
-                onContextMenu={isFK && !isPK ? handleRightClick : undefined} // Right click - FK selector
+                onClick={handleIconClick}
+                onContextMenu={isFK && !isPK ? handleRightClick : undefined}
                 _hover={{ opacity: 0.7, transform: "scale(1.1)" }}
                 transition="all 0.2s ease-in-out"
                 display="flex"
@@ -343,7 +430,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
           />
         </Box>
 
-        {/* Delete Button - Show on hover */}
+        {/* Delete Button */}
         {isHovered && (
           <Box position="absolute" right="2px" top="2px" zIndex={10}>
             <Tooltip label="Delete attribute" fontSize="xs">
@@ -391,7 +478,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
         )}
       </Flex>
 
-      {/* FK Selector Popup - hiện khi showFKSelector = true */}
+      {/* FK Selector Popup */}
       {showFKSelector && isFK && !isPK && (
         <Box
           ref={dropdownRef}
@@ -408,6 +495,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
           boxShadow="lg"
         >
           <ForeignKeyTargetSelector
+            key={`fk-selector-${model.id}-${attribute.id}-${Date.now()}`} // ✅ Always fresh mount
             currentModelId={model.id}
             currentAttributeId={attribute.id}
             currentConnection={
@@ -418,13 +506,12 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
                   }
                 : undefined
             }
-            allModels={allModels || []}
+            allModels={freshAllModels} // ✅ Pass fresh cloned data
             onTargetSelect={handleForeignKeyTargetSelectLocal}
             onDisconnect={handleForeignKeyDisconnectLocal}
             inline={true}
           />
 
-          {/* Close button */}
           <Button
             size="xs"
             position="absolute"

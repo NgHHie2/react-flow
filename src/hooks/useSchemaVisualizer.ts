@@ -222,7 +222,16 @@ export const useSchemaVisualizer = () => {
               },
             };
           }
-          return currentNode;
+          return {
+            ...currentNode,
+            data: {
+              ...currentNode.data,
+              lastUpdate: Date.now(), // Force dependency change
+              allModels: currentNode.data.allModels?.map((m: any) =>
+                m.id === modelId ? { ...m, name: trimmedNewName } : m
+              ),
+            },
+          };
         });
       });
       console.log("hiep dep trai: ", currentNodesRef);

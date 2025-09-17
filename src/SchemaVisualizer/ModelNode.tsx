@@ -56,12 +56,55 @@ export const ModelNode: React.FC<NodeProps<ModelNodeData>> = ({ data, id }) => {
 
   // ✅ Memoize all models with better dependency tracking
   const allModels = useMemo(() => {
-    console.log("buc roi day: ", data);
+    console.log(
+      "🔄 ModelNode - Getting allModels for",
+      data.name,
+      "at",
+      new Date().toISOString()
+    );
+
+    let models: Model[] = [];
+
     if (data.getAllModels) {
-      return data.getAllModels();
+      models = data.getAllModels();
+      console.log(
+        "📦 From getAllModels():",
+        models.map((m) => `${m.name}(${m.id})`)
+      );
+    } else if (data.allModels) {
+      models = data.allModels;
+      console.log(
+        "📦 From allModels prop:",
+        models.map((m) => `${m.name}(${m.id})`)
+      );
+    } else {
+      console.warn("⚠️ No allModels source available");
+      models = [];
     }
-    return data.allModels || [];
-  }, [data.allModels, data.getAllModels]);
+
+    console.log(
+      "🎯 Final allModels for",
+      data.name,
+      ":",
+      models.map((m) => ({
+        name: m.name,
+        id: m.id,
+        hasAttributes: !!m.attributes,
+        attributeCount: m.attributes?.length || 0,
+      }))
+    );
+
+    return models;
+  }, [
+    data.getAllModels,
+    data.allModels,
+    data.name,
+    // ✅ CRITICAL: Thêm dependency để force refresh khi có model nào đổi tên
+    data.lastUpdate,
+    data.lastNameUpdate,
+    // ✅ NEW: Thêm hash của tất cả model names để detect thay đổi
+    data.allModels?.map((m) => m.name).join("|"),
+  ]);
 
   // ✅ Ultra-stable handlers with proper dependencies
   const handleFieldNameUpdate = useCallback(
