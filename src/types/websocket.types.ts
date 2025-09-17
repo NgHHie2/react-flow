@@ -70,7 +70,6 @@ export interface UpdateModelNameUpdate extends BaseUpdate {
 
 export interface DeleteModelUpdate extends BaseUpdate {
   modelId: string;
-  modelName: string;
 }
 
 export interface WebSocketResponse<T> {

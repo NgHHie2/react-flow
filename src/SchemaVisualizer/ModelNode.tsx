@@ -24,13 +24,16 @@ interface ModelNodeData extends Model {
   onDeleteAttribute?: (modelName: string, attributeId: string) => void;
   onForeignKeyTargetSelect?: (
     attributeId: string,
-    targetModelName: string,
-    targetAttributeName: string,
+    targetModelId: string,
     targetAttributeId: string
   ) => void;
   onForeignKeyDisconnect?: (attributeId: string) => void;
-  onModelNameUpdate?: (oldName: string, newName: string) => void;
-  onDeleteModel?: (modelName: string) => void;
+  onModelNameUpdate?: (
+    modelId: string,
+    oldName: string,
+    newName: string
+  ) => void;
+  onDeleteModel?: (modelId: string) => void;
   // Add update tracking fields
   lastUpdate?: number;
   lastFieldUpdate?: number;
@@ -39,10 +42,7 @@ interface ModelNodeData extends Model {
   lastConnectionUpdate?: number;
 }
 
-const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
-  data,
-  id,
-}) => {
+export const ModelNode: React.FC<NodeProps<ModelNodeData>> = ({ data, id }) => {
   // ✅ Memoize sorted attributes with stable sorting
   const sortedAttributes = useMemo(() => {
     if (!data.attributes || !Array.isArray(data.attributes)) return [];
@@ -56,11 +56,12 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
 
   // ✅ Memoize all models with better dependency tracking
   const allModels = useMemo(() => {
+    console.log("buc roi day: ", data);
     if (data.getAllModels) {
       return data.getAllModels();
     }
     return data.allModels || [];
-  }, [data.getAllModels, data.allModels, data.lastConnectionUpdate]);
+  }, [data.allModels, data.getAllModels]);
 
   // ✅ Ultra-stable handlers with proper dependencies
   const handleFieldNameUpdate = useCallback(
@@ -152,20 +153,14 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
   );
 
   const handleForeignKeyTargetSelect = useCallback(
-    (
-      attributeId: string,
-      targetModelName: string,
-      targetAttributeName: string,
-      targetAttributeId: string
-    ) => {
+    (attributeId: string, targetModelId: string, targetAttributeId: string) => {
       if (data.onForeignKeyTargetSelect) {
         console.log(
-          `🔗 FK select: ${attributeId} -> ${targetModelName}.${targetAttributeName}`
+          `🔗 FK select: ${attributeId} -> ${targetModelId}.${targetAttributeId}`
         );
         data.onForeignKeyTargetSelect(
           attributeId,
-          targetModelName,
-          targetAttributeName,
+          targetModelId,
           targetAttributeId
         );
       }
@@ -185,12 +180,6 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
 
   const handleModelNameUpdate = useCallback(
     (newName: string) => {
-      console.log("🏷️ ModelNode - handleModelNameUpdate called:", {
-        oldName: data.name,
-        newName,
-        hasHandler: !!data.onModelNameUpdate,
-      });
-
       if (!data.onModelNameUpdate || !newName.trim()) {
         console.warn("⚠️ Model name update failed:", {
           hasHandler: !!data.onModelNameUpdate,
@@ -203,7 +192,7 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
       const trimmedName = newName.trim();
       if (trimmedName !== data.name) {
         console.log(`📝 Model name update: ${data.name} -> ${trimmedName}`);
-        data.onModelNameUpdate(data.name, trimmedName);
+        data.onModelNameUpdate(data.id, data.name, trimmedName);
       }
     },
     [data.onModelNameUpdate, data.name]
@@ -228,7 +217,7 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
 
     console.log(`🗑️ Deleting model: ${data.name}`);
     console.log(data);
-    data.onDeleteModel(data.name);
+    data.onDeleteModel(data.id);
     console.log(data.onDeleteModel);
   }, [data.onDeleteModel, data.attributes, data.name, allModels]);
 
@@ -270,7 +259,7 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
           <FieldComponent
             key={attributeKeys[index]} // Use generated stable key
             attribute={attribute}
-            modelName={data.name}
+            model={data}
             fieldIndex={index}
             allModels={allModels}
             onFieldNameUpdate={handleFieldNameUpdate}
@@ -290,59 +279,57 @@ const ModelNodeComponent: React.FC<NodeProps<ModelNodeData>> = ({
 };
 
 // ✅ Enhanced memo with detailed comparison
-const ModelNode = memo(ModelNodeComponent, (prevProps, nextProps) => {
-  const prevData = prevProps.data;
-  const nextData = nextProps.data;
+// const ModelNode = memo(ModelNodeComponent, (prevProps, nextProps) => {
+//   const prevData = prevProps.data;
+//   const nextData = nextProps.data;
 
-  // Basic property changes
-  if (
-    prevData.name !== nextData.name ||
-    prevData.attributes?.length !== nextData.attributes?.length ||
-    prevData.id !== nextData.id
-  ) {
-    console.log(`🔄 Re-render ${prevData.name}: basic properties changed`);
-    return false;
-  }
+//   // Basic property changes
+//   if (
+//     prevData.name !== nextData.name ||
+//     prevData.attributes?.length !== nextData.attributes?.length ||
+//     prevData.id !== nextData.id
+//   ) {
+//     console.log(`🔄 Re-render ${prevData.name}: basic properties changed`);
+//     return false;
+//   }
 
-  // Update tracking fields
-  if (
-    prevData.lastUpdate !== nextData.lastUpdate ||
-    prevData.lastFieldUpdate !== nextData.lastFieldUpdate ||
-    prevData.lastKeyUpdate !== nextData.lastKeyUpdate ||
-    prevData.lastNameUpdate !== nextData.lastNameUpdate ||
-    prevData.lastConnectionUpdate !== nextData.lastConnectionUpdate
-  ) {
-    console.log(`🔄 Re-render ${prevData.name}: update tracking changed`);
-    return false;
-  }
+//   // Update tracking fields
+//   if (
+//     prevData.lastUpdate !== nextData.lastUpdate ||
+//     prevData.lastFieldUpdate !== nextData.lastFieldUpdate ||
+//     prevData.lastKeyUpdate !== nextData.lastKeyUpdate ||
+//     prevData.lastNameUpdate !== nextData.lastNameUpdate ||
+//     prevData.lastConnectionUpdate !== nextData.lastConnectionUpdate
+//   ) {
+//     console.log(`🔄 Re-render ${prevData.name}: update tracking changed`);
+//     return false;
+//   }
 
-  // Deep attribute comparison (only if lengths match)
-  if (prevData.attributes && nextData.attributes) {
-    const attributesChanged = prevData.attributes.some((attr, index) => {
-      const nextAttr = nextData.attributes?.[index];
-      if (!nextAttr) return true;
+//   // Deep attribute comparison (only if lengths match)
+//   if (prevData.attributes && nextData.attributes) {
+//     const attributesChanged = prevData.attributes.some((attr, index) => {
+//       const nextAttr = nextData.attributes?.[index];
+//       if (!nextAttr) return true;
 
-      return (
-        attr.id !== nextAttr.id ||
-        attr.name !== nextAttr.name ||
-        attr.dataType !== nextAttr.dataType ||
-        attr.isPrimaryKey !== nextAttr.isPrimaryKey ||
-        attr.isForeignKey !== nextAttr.isForeignKey ||
-        JSON.stringify(attr.connection) !== JSON.stringify(nextAttr.connection)
-      );
-    });
+//       return (
+//         attr.id !== nextAttr.id ||
+//         attr.name !== nextAttr.name ||
+//         attr.dataType !== nextAttr.dataType ||
+//         attr.isPrimaryKey !== nextAttr.isPrimaryKey ||
+//         attr.isForeignKey !== nextAttr.isForeignKey ||
+//         JSON.stringify(attr.connection) !== JSON.stringify(nextAttr.connection)
+//       );
+//     });
 
-    if (attributesChanged) {
-      console.log(`🔄 Re-render ${prevData.name}: attributes changed`);
-      return false;
-    }
-  }
+//     if (attributesChanged) {
+//       console.log(`🔄 Re-render ${prevData.name}: attributes changed`);
+//       return false;
+//     }
+//   }
 
-  // If we get here, no meaningful changes detected
-  console.log(`⏸️ Skip re-render ${prevData.name}: no changes`);
-  return true; // Skip re-render
-});
+//   // If we get here, no meaningful changes detected
+//   console.log(`⏸️ Skip re-render ${prevData.name}: no changes`);
+//   return true; // Skip re-render
+// });
 
-ModelNode.displayName = "ModelNode";
-
-export default ModelNode;
+// ModelNode.displayName = "ModelNode";

@@ -9,7 +9,7 @@ import { X } from "lucide-react";
 
 interface FieldComponentProps {
   attribute: Attribute;
-  modelName: string;
+  model: Model;
   fieldIndex: number;
   allModels: Model[];
   onFieldNameUpdate: (fieldIndex: number, newName: string) => void;
@@ -22,8 +22,7 @@ interface FieldComponentProps {
   onDeleteAttribute: (attributeId: string) => void;
   onForeignKeyTargetSelect: (
     attributeId: string,
-    targetModelName: string,
-    targetAttributeName: string,
+    targetModelId: string,
     targetAttributeId: string
   ) => void;
   onForeignKeyDisconnect: (attributeId: string) => void;
@@ -35,7 +34,7 @@ type KeyType = "NORMAL" | "PRIMARY" | "FOREIGN";
 
 export const FieldComponent: React.FC<FieldComponentProps> = ({
   attribute,
-  modelName,
+  model,
   fieldIndex,
   allModels,
   onFieldNameUpdate,
@@ -136,7 +135,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
     const nextType = getNextKeyType(currentType);
 
     // ⭐ QUAN TRỌNG: Gọi với attributeId thay vì fieldIndex
-    onToggleKeyType(modelName, attribute.id, nextType);
+    onToggleKeyType(model.id, attribute.id, nextType);
   };
 
   // Handle click on handles - show FK selector for FK fields
@@ -155,16 +154,10 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
   };
 
   const handleForeignKeyTargetSelectLocal = (
-    targetModelName: string,
-    targetAttributeName: string,
+    targetModelId: string,
     targetAttributeId: string
   ) => {
-    onForeignKeyTargetSelect(
-      attribute.id,
-      targetModelName,
-      targetAttributeName,
-      targetAttributeId
-    );
+    onForeignKeyTargetSelect(attribute.id, targetModelId, targetAttributeId);
     setShowFKSelector(false); // Đóng selector sau khi chọn
   };
 
@@ -198,7 +191,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
       backgroundColor: isPK ? "#FFD700" : "#6B7280",
     };
 
-    const baseHandleId = `${modelName}-${attribute.name}`;
+    const baseHandleId = `${model.id}-${attribute.id}`;
 
     return (
       <>
@@ -380,7 +373,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
             height="6px"
             bg={attribute.connection?.strokeColor || "#4A90E2"}
             borderRadius="50%"
-            title={`Connected to ${attribute.connection?.targetModelId}.${attribute.connection?.targetAttributeName}`}
+            title={`Connected to ${attribute.connection?.targetModelId}.${attribute.connection?.targetAttributeId}`}
           />
         )}
 
@@ -415,14 +408,13 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
           boxShadow="lg"
         >
           <ForeignKeyTargetSelector
-            currentModelName={modelName}
+            currentModelId={model.id}
             currentAttributeId={attribute.id}
             currentConnection={
               attribute.connection
                 ? {
-                    targetModelName: attribute.connection.targetModelId,
-                    targetAttributeName:
-                      attribute.connection.targetAttributeName,
+                    targetModelId: attribute.connection.targetModelId,
+                    targetAttributeId: attribute.connection.targetAttributeId,
                   }
                 : undefined
             }

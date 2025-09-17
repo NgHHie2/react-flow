@@ -64,17 +64,6 @@ export const ModelHeader: React.FC<ModelHeaderProps> = ({
             onEditingChange={setIsEditing}
           />
         </Box>
-
-        {/* Model Type Text */}
-        <Box
-          fontSize="10px"
-          color="rgba(255,255,255,0.7)"
-          textTransform="uppercase"
-          letterSpacing="0.5px"
-          minWidth="35px"
-        >
-          {model.modelType}
-        </Box>
       </Flex>
 
       {/* Delete Button - Show on hover */}

@@ -3,7 +3,7 @@ export interface Connection {
   id: string;
   connectionType: string;
   targetModelId: string;
-  targetAttributeName: string;
+  targetAttributeId: string;
   foreignKeyName: string;
   onUpdate?: string;
   onDelete?: string;

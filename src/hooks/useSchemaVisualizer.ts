@@ -16,7 +16,7 @@ import { useNodeHandlers } from "./useNodeHandlers";
 import { useDragHandlers } from "./useDragHandlers";
 import { calculateOptimalHandlePositions } from "../utils/handlePositioning";
 import { Attribute } from "../SchemaVisualizer/SchemaVisualizer.types";
-import { generateModelId } from "../utils/uuid.utils";
+import { generateAttributeId, generateModelId } from "../utils/uuid.utils";
 
 export const useSchemaVisualizer = () => {
   const {
@@ -124,6 +124,59 @@ export const useSchemaVisualizer = () => {
 
     console.log("🆕 Adding new model:", { newModelId, positionX, positionY });
 
+    setReactFlowNodes((currentNodes: any) => {
+      // ⭐ Lấy callbacks từ node hiện có để copy sang node mới
+      const existingNodeWithCallbacks = currentNodes[0]; // Lấy callback từ node đầu tiên
+      const callbacks = existingNodeWithCallbacks
+        ? {
+            getAllModels: existingNodeWithCallbacks.data.getAllModels,
+            allModels: currentNodes.map((n: any) => n.data),
+            onFieldUpdate: existingNodeWithCallbacks.data.onFieldUpdate,
+            onToggleKeyType: existingNodeWithCallbacks.data.onToggleKeyType,
+            onAddAttribute: existingNodeWithCallbacks.data.onAddAttribute,
+            onDeleteAttribute: existingNodeWithCallbacks.data.onDeleteAttribute,
+            onForeignKeyTargetSelect:
+              existingNodeWithCallbacks.data.onForeignKeyTargetSelect,
+            onForeignKeyDisconnect:
+              existingNodeWithCallbacks.data.onForeignKeyDisconnect,
+            onModelNameUpdate: existingNodeWithCallbacks.data.onModelNameUpdate,
+            onDeleteModel: existingNodeWithCallbacks.data.onDeleteModel,
+          }
+        : {};
+
+      console.log("🔧 Copying callbacks to new node:", {
+        hasCallbacks: Object.keys(callbacks).length > 0,
+        hasOnDeleteModel: !!callbacks.onDeleteModel,
+      });
+
+      const newNode = {
+        id: newModelId,
+        position: { x: positionX, y: positionY },
+        data: {
+          id: newModelId,
+          name: "Model",
+          modelType: "TABLE",
+          width: 280,
+          height: 200,
+          backgroundColor: "#f1f5f9",
+          borderColor: "#e2e8f0",
+          borderWidth: 2,
+          borderRadius: 8,
+          attributes: [],
+          zindex: 10,
+          // ⭐ Thêm callbacks ngay lập tức
+          ...callbacks,
+        },
+        type: "model",
+      };
+
+      console.log("newnode: ", newNode);
+
+      const updatedNodes = [...currentNodes, newNode];
+
+      return updatedNodes;
+    });
+
     // KHÔNG cập nhật UI ngay, chỉ gửi WebSocket và chờ response
     if (isConnected) {
       sendAddModel({
@@ -139,8 +192,8 @@ export const useSchemaVisualizer = () => {
 
   // FIX 3: Improved model name update handler
   const handleModelNameUpdate = useCallback(
-    (oldName: string, newName: string) => {
-      console.log("🏷️ handleModelNameUpdate called:", { oldName, newName });
+    (modelId: string, oldName: string, newName: string) => {
+      console.log("🏷️ handleModelNameUpdate called:", { modelId, newName });
 
       if (oldName === newName || !newName.trim()) {
         console.warn("⚠️ Model name update skipped:", {
@@ -153,45 +206,32 @@ export const useSchemaVisualizer = () => {
 
       const trimmedNewName = newName.trim();
 
-      // Tìm node theo oldName
-      const node = reactFlowNodesRef.current.find((n) => n.id === oldName);
-      if (!node) {
-        console.warn(`⚠️ Node not found for name update:`, {
-          oldName,
-          availableNodes: reactFlowNodesRef.current.map((n) => ({
-            id: n.id,
-            dataName: n.data.name,
-          })),
-        });
-        return;
-      }
-
-      console.log(`📝 Found node, updating: ${oldName} -> ${trimmedNewName}`);
-
       // ⭐ Update local UI immediately
       setReactFlowNodes((currentNodes: any) => {
         return currentNodes.map((currentNode: any) => {
-          if (currentNode.id === oldName) {
+          if (currentNode.id === modelId) {
             return {
               ...currentNode,
-              id: trimmedNewName, // Change node ID
               data: {
                 ...currentNode.data,
                 name: trimmedNewName,
-                nodeId: trimmedNewName,
                 lastNameUpdate: Date.now(),
+                allModels: currentNode.data.allModels?.map((m: any) =>
+                  m.id === modelId ? { ...m, name: trimmedNewName } : m
+                ),
               },
             };
           }
           return currentNode;
         });
       });
+      console.log("hiep dep trai: ", currentNodesRef);
 
       // ⭐ Gửi WebSocket để sync với other clients
       if (isConnected) {
         console.log("📤 Sending model name update via WebSocket");
         sendUpdateModelName({
-          modelId: node.data.id,
+          modelId: modelId,
           oldModelName: oldName,
           newModelName: trimmedNewName,
         });
@@ -203,13 +243,11 @@ export const useSchemaVisualizer = () => {
   );
 
   const handleDeleteModel = useCallback(
-    (modelName: string) => {
-      const node = reactFlowNodesRef.current.find(
-        (n: any) => n.id === modelName
-      );
+    (modelId: string) => {
+      const node = reactFlowNodesRef.current.find((n: any) => n.id === modelId);
       console.log("hiep dep trai");
       if (!node) {
-        console.warn(`⚠️ Node not found for delete: ${modelName}`);
+        console.warn(`⚠️ Node not found for delete: ${modelId}`);
         return;
       }
 
@@ -218,9 +256,9 @@ export const useSchemaVisualizer = () => {
         node.data.attributes?.some((attr: any) => attr.connection) ||
         reactFlowNodes.some(
           (otherNode: any) =>
-            otherNode.id !== modelName &&
+            otherNode.id !== modelId &&
             otherNode.data.attributes?.some(
-              (attr: any) => attr.connection?.targetModelName === modelName
+              (attr: any) => attr.connection?.targetModelId === modelId
             )
         );
 
@@ -229,13 +267,21 @@ export const useSchemaVisualizer = () => {
       //   return;
       // }
 
-      console.log(`🗑️ Deleting model: ${modelName}, ID: ${node.data.id}`);
+      console.log(`🗑️ Deleting model: ${modelId}`);
+      setReactFlowNodes((prevNodes: any) => {
+        const filteredNodes = prevNodes.filter((node: any) => {
+          // Xóa theo cả modelName và modelId để chắc chắn
+          const shouldKeep = node.data.id !== modelId;
+          return shouldKeep;
+        });
+
+        return filteredNodes;
+      });
 
       // Gửi WebSocket với cả modelName và modelId
 
       sendDeleteModel({
-        modelId: node.data.id,
-        modelName: modelName,
+        modelId: modelId,
       });
     },
     [reactFlowNodes, sendDeleteModel, isConnected]
@@ -366,7 +412,7 @@ export const useSchemaVisualizer = () => {
       attributes.forEach((attribute: Attribute) => {
         if (attribute.connection) {
           connections.push(
-            `${node.id}:${attribute.name}->${attribute.connection.targetModelId}:${attribute.connection.targetAttributeName}`
+            `${node.id}:${attribute.id}->${attribute.connection.targetModelId}:${attribute.connection.targetAttributeId}`
           );
         }
       });
@@ -403,11 +449,11 @@ export const useSchemaVisualizer = () => {
           const handlePositions = calculateOptimalHandlePositions(
             sourceNode,
             targetNode,
-            attribute.name,
-            connection.targetAttributeName
+            attribute.id,
+            connection.targetAttributeId
           );
 
-          const edgeId = `${node.id}-${attribute.name}-${connection.targetModelId}`;
+          const edgeId = `${node.id}-${attribute.id}-${connection.targetModelId}`;
 
           newEdges.push({
             id: edgeId,

@@ -12,7 +12,7 @@ import ReactFlow, {
   EdgeChange,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import ModelNode from "../SchemaVisualizer/ModelNode";
+import { ModelNode } from "../SchemaVisualizer/ModelNode";
 import { SchemaData } from "../SchemaVisualizer/SchemaVisualizer.types";
 
 const modelTypes = {

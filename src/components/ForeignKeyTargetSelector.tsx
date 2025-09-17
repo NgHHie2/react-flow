@@ -13,27 +13,22 @@ import {
   useDisclosure,
 } from "@chakra-ui/react";
 import { ChevronDown, Link } from "lucide-react";
-import { Model } from "../SchemaVisualizer/SchemaVisualizer.types";
+import { Attribute, Model } from "../SchemaVisualizer/SchemaVisualizer.types";
 
 interface PrimaryKeyOption {
-  modelName: string;
-  attributeName: string;
-  attributeId: string;
+  model: Model;
+  attribute: Attribute;
 }
 
 interface ForeignKeyTargetSelectorProps {
-  currentModelName: string;
+  currentModelId: string;
   currentAttributeId: string;
   currentConnection?: {
-    targetModelName: string;
-    targetAttributeName: string;
+    targetModelId: string;
+    targetAttributeId: string;
   };
   allModels: Model[];
-  onTargetSelect: (
-    targetModelName: string,
-    targetAttributeName: string,
-    targetAttributeId: string
-  ) => void;
+  onTargetSelect: (targetModelId: string, targetAttributeId: string) => void;
   onDisconnect: () => void;
   inline?: boolean;
 }
@@ -41,7 +36,7 @@ interface ForeignKeyTargetSelectorProps {
 export const ForeignKeyTargetSelector: React.FC<
   ForeignKeyTargetSelectorProps
 > = ({
-  currentModelName,
+  currentModelId,
   currentAttributeId,
   currentConnection,
   allModels,
@@ -56,6 +51,7 @@ export const ForeignKeyTargetSelector: React.FC<
 
   // Tạo key duy nhất từ PK data để detect thay đổi
   const pkDataKey: string = useMemo(() => {
+    console.log("dmm m nha: ", allModels);
     if (!allModels) return "no-models";
 
     const pkData = allModels
@@ -63,7 +59,7 @@ export const ForeignKeyTargetSelector: React.FC<
         (model) =>
           model.attributes
             ?.filter((attr: any) => attr.isPrimaryKey)
-            ?.map((attr: any) => `${model.name}.${attr.name}.${attr.id}`)
+            ?.map((attr: any) => `${model.id}.${attr.id}`)
             ?.join("|") || ""
       )
       .filter(Boolean)
@@ -117,11 +113,7 @@ export const ForeignKeyTargetSelector: React.FC<
         return;
       }
 
-      console.log(
-        `🔍 Processing model: ${model.name} with ${model.attributes.length} attributes`
-      );
-
-      model.attributes.forEach((attr: any, index: number) => {
+      model.attributes.forEach((attr: Attribute, index: number) => {
         console.log(`  🔍 Attribute ${index}:`, {
           attr,
           name: attr?.name,
@@ -139,9 +131,8 @@ export const ForeignKeyTargetSelector: React.FC<
             `✅ Found PK: ${model.name}.${attr.name} (id: ${attr.id})`
           );
           options.push({
-            modelName: model.name,
-            attributeName: attr.name,
-            attributeId: attr.id,
+            model: model,
+            attribute: attr,
           });
         }
       });
@@ -153,7 +144,7 @@ export const ForeignKeyTargetSelector: React.FC<
 
   const handleTargetSelect = (option: PrimaryKeyOption) => {
     console.log("🔗 Selecting FK target:", option);
-    onTargetSelect(option.modelName, option.attributeName, option.attributeId);
+    onTargetSelect(option.model.id, option.attribute.id);
   };
 
   const handleDisconnect = () => {
@@ -163,7 +154,7 @@ export const ForeignKeyTargetSelector: React.FC<
 
   const getCurrentTargetText = () => {
     if (currentConnection) {
-      return `${currentConnection.targetModelName}.${currentConnection.targetAttributeName}`;
+      return `${currentConnection.targetModelId}.${currentConnection.targetAttributeId}`;
     }
     return "Select target...";
   };
@@ -191,7 +182,7 @@ export const ForeignKeyTargetSelector: React.FC<
           >
             {primaryKeyOptions.map((option) => (
               <Button
-                key={`${option.modelName}-${option.attributeId}`}
+                key={`${option.model.id}-${option.attribute.id}`}
                 size="xs"
                 variant="ghost"
                 height="24px"
@@ -201,9 +192,8 @@ export const ForeignKeyTargetSelector: React.FC<
                 _hover={{ bg: "blue.600" }}
                 onClick={() => handleTargetSelect(option)}
                 isActive={
-                  currentConnection?.targetModelName === option.modelName &&
-                  currentConnection?.targetAttributeName ===
-                    option.attributeName
+                  currentConnection?.targetModelId === option.model.id &&
+                  currentConnection?.targetAttributeId === option.attribute.id
                 }
                 _active={{
                   bg: "rgba(74, 144, 226, 0.2)", // Thay đổi này - từ mặc định sang màu xanh nhạt
@@ -212,7 +202,7 @@ export const ForeignKeyTargetSelector: React.FC<
                 }}
               >
                 <Text noOfLines={1}>
-                  🔑 {option.modelName}.{option.attributeName}
+                  🔑 {option.model.name}.{option.attribute.name}
                 </Text>
               </Button>
             ))}
@@ -291,7 +281,7 @@ export const ForeignKeyTargetSelector: React.FC<
             ) : (
               primaryKeyOptions.map((option) => (
                 <Button
-                  key={`${option.modelName}-${option.attributeId}`}
+                  key={`${option.model.id}-${option.attribute.id}`}
                   size="xs"
                   variant="ghost"
                   height="24px"
@@ -301,13 +291,12 @@ export const ForeignKeyTargetSelector: React.FC<
                   _hover={{ bg: "gray.600" }}
                   onClick={() => handleTargetSelect(option)}
                   isActive={
-                    currentConnection?.targetModelName === option.modelName &&
-                    currentConnection?.targetAttributeName ===
-                      option.attributeName
+                    currentConnection?.targetModelId === option.model.id &&
+                    currentConnection?.targetAttributeId === option.attribute.id
                   }
                 >
                   <Text noOfLines={1}>
-                    🔑 {option.modelName}.{option.attributeName}
+                    🔑 {option.model.name}.{option.attribute.name}
                   </Text>
                 </Button>
               ))

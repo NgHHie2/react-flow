@@ -73,8 +73,8 @@ export const convertToReactFlowData = (
         const edgeId = connection.id;
 
         // Create source and target handle IDs
-        const sourceHandleId = `${model.id}-${attribute.name}-source`;
-        const targetHandleId = `${connection.targetModelId}-${connection.targetAttributeName}-target`;
+        const sourceHandleId = `${model.id}-${attribute.id}-source`;
+        const targetHandleId = `${connection.targetModelId}-${connection.targetAttributeId}-target`;
         console.log("connectionId: " + connection.id);
         console.log("source: " + model.id);
         console.log("target: " + connection.targetModelId);
@@ -114,7 +114,7 @@ export const getConnectionInfo = (attribute: Attribute) => {
 
   return {
     targetModel: attribute.connection.targetModelId,
-    targetField: attribute.connection.targetAttributeName,
+    targetField: attribute.connection.targetAttributeId,
     connectionType: attribute.connection.connectionType,
     color: attribute.connection.strokeColor,
   };

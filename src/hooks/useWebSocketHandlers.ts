@@ -342,15 +342,6 @@ export const useWebSocketHandlers = ({
         console.log("✅ Adding model with real ID:", data.realModelId);
 
         setReactFlowNodes((currentNodes: any) => {
-          // Kiểm tra xem node đã tồn tại chưa để tránh duplicate
-          const existingNode = currentNodes.find(
-            (n: any) => n.id === data.modelName
-          );
-          if (existingNode) {
-            console.log("⚠️ Node already exists, skipping:", data.modelName);
-            return currentNodes;
-          }
-
           // ⭐ Lấy callbacks từ node hiện có để copy sang node mới
           const existingNodeWithCallbacks = currentNodes[0]; // Lấy callback từ node đầu tiên
           const callbacks = existingNodeWithCallbacks
@@ -378,33 +369,20 @@ export const useWebSocketHandlers = ({
           });
 
           const newNode = {
-            id: data.modelName,
+            id: data.realModelId,
             position: { x: data.positionX, y: data.positionY },
             data: {
               id: data.realModelId,
-              nodeId: data.nodeId,
               name: data.modelName,
               modelType: "TABLE",
-              positionX: data.positionX,
-              positionY: data.positionY,
               width: 280,
               height: 200,
               backgroundColor: "#f1f5f9",
               borderColor: "#e2e8f0",
               borderWidth: 2,
               borderRadius: 8,
-              attributes: [
-                {
-                  id: data.realModelId + 1,
-                  name: "id",
-                  dataType: "BIGINT",
-                  isNullable: false,
-                  isPrimaryKey: true,
-                  isForeignKey: false,
-                  attributeOrder: 0,
-                },
-              ],
-              zindex: 1,
+              attributes: [],
+              zindex: 10,
               // ⭐ Thêm callbacks ngay lập tức
               ...callbacks,
             },
@@ -414,14 +392,6 @@ export const useWebSocketHandlers = ({
           console.log("newnode: ", newNode);
 
           const updatedNodes = [...currentNodes, newNode];
-          console.log(
-            "📊 Nodes after add:",
-            updatedNodes.map((n) => n.id)
-          );
-          console.log(
-            "🔧 New node has onDeleteModel:",
-            !!newNode.data.onDeleteModel
-          );
 
           return updatedNodes;
         });
@@ -435,55 +405,17 @@ export const useWebSocketHandlers = ({
       console.log("📝 Received model name update from backend:", data);
 
       setReactFlowNodes((currentNodes: any) => {
-        console.log("🔍 Looking for node to rename:", {
-          oldName: data.oldModelName,
-          newName: data.newModelName,
-          availableNodes: currentNodes.map((n: any) => n.id),
-        });
-
         const updatedNodes = currentNodes.map((node: any) => {
           // Tìm node cần đổi tên theo oldModelName
-          if (node.id === data.oldModelName) {
+          if (node.id === data.modelId) {
             console.log("✅ Found node to rename:", node.id);
 
             return {
               ...node,
-              id: data.newModelName, // Đổi node ID
               data: {
                 ...node.data,
                 name: data.newModelName, // Đổi tên trong data
-                nodeId: data.newModelName, // Đổi nodeId
                 lastNameUpdate: Date.now(), // Force re-render
-              },
-            };
-          }
-
-          // Cập nhật FK connections reference đến model cũ
-          const hasConnectionsToUpdate = node.data.attributes?.some(
-            (attr: any) =>
-              attr.connection?.targetModelName === data.oldModelName
-          );
-
-          if (hasConnectionsToUpdate) {
-            console.log("🔗 Updating FK references in node:", node.id);
-
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                attributes: node.data.attributes.map((attr: any) => {
-                  if (attr.connection?.targetModelName === data.oldModelName) {
-                    return {
-                      ...attr,
-                      connection: {
-                        ...attr.connection,
-                        targetModelName: data.newModelName, // Update FK reference
-                      },
-                    };
-                  }
-                  return attr;
-                }),
-                lastConnectionUpdate: Date.now(), // Force re-render
               },
             };
           }
@@ -494,10 +426,10 @@ export const useWebSocketHandlers = ({
         return updatedNodes;
       });
 
-      // ⭐ QUAN TRỌNG: Cũng cần update data store để đồng bộ
-      updateModelName(data.oldModelName, data.newModelName);
+      // // ⭐ QUAN TRỌNG: Cũng cần update data store để đồng bộ
+      // updateModelName(data.oldModelName, data.newModelName);
     },
-    [setReactFlowNodes, updateModelName]
+    [setReactFlowNodes]
   );
 
   const handleDeleteModel = useCallback(
