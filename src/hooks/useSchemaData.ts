@@ -1,13 +1,14 @@
 // src/hooks/useSchemaData.ts - Fixed version
 import { useState, useCallback } from "react";
 import { useToast } from "@chakra-ui/react";
-import { Node, Edge } from "reactflow";
+import { Node, Edge, useNodesState } from "reactflow";
 import { schemaApiService } from "../services/schemaApiService";
 import { convertToReactFlowData } from "../utils/schemaUtils";
 import { SchemaData } from "../SchemaVisualizer/SchemaVisualizer.types";
 import { generateAttributeId } from "../utils/uuid.utils";
 
 export const useSchemaData = () => {
+  const [reactFlowNodes, setReactFlowNodes, onNodesChange] = useNodesState([]);
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,7 +67,7 @@ export const useSchemaData = () => {
       console.log(`🎯 Updating position for ${nodeId}: (${x}, ${y})`);
 
       // Update local state immediately
-      setNodes((prevNodes) => {
+      setReactFlowNodes((prevNodes) => {
         return prevNodes.map((node) =>
           node.id === nodeId
             ? {
@@ -196,7 +197,7 @@ export const useSchemaData = () => {
   );
 
   const addAttribute = useCallback(
-    async (modelName: string, attributeName: string, dataType: string) => {
+    async (modelId: string, attributeName: string, dataType: string) => {
       // Generate UUID for new attribute
       const newAttributeId = generateAttributeId();
 
@@ -211,9 +212,9 @@ export const useSchemaData = () => {
       };
 
       // Immediately add to UI
-      setNodes((nds) =>
+      setReactFlowNodes((nds) =>
         nds.map((node) =>
-          node.id === modelName
+          node.id === modelId
             ? {
                 ...node,
                 data: {
@@ -227,7 +228,7 @@ export const useSchemaData = () => {
 
       toast({
         title: "Attribute Added",
-        description: `Added ${attributeName} to ${modelName}`,
+        description: `Added ${attributeName} to ${modelId}`,
         status: "success",
         duration: 2000,
         isClosable: true,

@@ -188,7 +188,7 @@ export const useSchemaVisualizer = () => {
 
       console.log("📤 Sent add model request, waiting for backend response...");
     }
-  }, [schemaInfo, isConnected, sendAddModel]);
+  }, [schemaInfo, isConnected]);
 
   // FIX 3: Improved model name update handler
   const handleModelNameUpdate = useCallback(

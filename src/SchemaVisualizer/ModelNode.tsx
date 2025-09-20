@@ -20,7 +20,7 @@ interface ModelNodeData extends Model {
     attributeId: string,
     keyType: "NORMAL" | "PRIMARY" | "FOREIGN"
   ) => void;
-  onAddAttribute?: (modelName: string) => void;
+  onAddAttribute?: (modelId: string) => void;
   onDeleteAttribute?: (modelName: string, attributeId: string) => void;
   onForeignKeyTargetSelect?: (
     attributeId: string,
@@ -178,12 +178,11 @@ export const ModelNode: React.FC<NodeProps<ModelNodeData>> = ({ data, id }) => {
     [sortedAttributes, data.onToggleKeyType, data.name]
   );
 
-  const handleAddAttribute = useCallback(() => {
+  const handleAddAttribute = useCallback((modelId: string) => {
     if (data.onAddAttribute) {
-      console.log(`➕ Adding attribute to ${data.name}`);
-      data.onAddAttribute(data.name);
+      data.onAddAttribute(modelId);
     }
-  }, [data.onAddAttribute, data.name]);
+  }, []);
 
   const handleDeleteAttribute = useCallback(
     (attributeId: string) => {
@@ -316,7 +315,10 @@ export const ModelNode: React.FC<NodeProps<ModelNodeData>> = ({ data, id }) => {
       </Box>
 
       {/* Model Footer */}
-      <ModelFooter model={data} onAddAttribute={handleAddAttribute} />
+      <ModelFooter
+        model={data}
+        onAddAttribute={() => handleAddAttribute(data.id)}
+      />
     </Box>
   );
 };

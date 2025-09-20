@@ -31,8 +31,8 @@ export type TogglePrimaryKeyUpdate = ToggleKeyUpdate;
 export type ToggleForeignKeyUpdate = ToggleKeyUpdate;
 
 export interface AddAttributeUpdate extends BaseUpdate {
-  modelName: string;
   modelId: string;
+  attributeId: string;
   attributeName: string;
   dataType: string;
 }

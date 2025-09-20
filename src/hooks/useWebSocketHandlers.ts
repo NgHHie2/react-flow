@@ -403,7 +403,6 @@ export const useWebSocketHandlers = ({
   const handleUpdateModelName = useCallback(
     (data: any) => {
       console.log("📝 Received model name update from backend:", data);
-
       setReactFlowNodes((currentNodes: any) => {
         const updatedNodes = currentNodes.map((node: any) => {
           // Tìm node cần đổi tên theo oldModelName
@@ -416,11 +415,23 @@ export const useWebSocketHandlers = ({
                 ...node.data,
                 name: data.newModelName, // Đổi tên trong data
                 lastNameUpdate: Date.now(), // Force re-render
+                allModels: node.data.allModels?.map((m: any) =>
+                  m.id === data.modelId ? { ...m, name: data.newModelName } : m
+                ),
               },
             };
           }
 
-          return node;
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              lastUpdate: Date.now(), // Force dependency change
+              allModels: node.data.allModels?.map((m: any) =>
+                m.id === data.modelId ? { ...m, name: data.newModelName } : m
+              ),
+            },
+          };
         });
 
         return updatedNodes;

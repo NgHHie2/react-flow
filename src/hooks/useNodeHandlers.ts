@@ -1,6 +1,8 @@
 // src/hooks/useNodeHandlers.ts - Node action handlers
 import { useCallback, useEffect, useRef } from "react";
 import { createFieldUpdate } from "../utils/schemaUtils";
+import { generateAttributeId } from "../utils/uuid.utils";
+import { useNodesState } from "reactflow";
 
 interface UseNodeHandlersProps {
   setReactFlowNodes: any;
@@ -15,7 +17,7 @@ interface UseNodeHandlersProps {
 }
 
 export const useNodeHandlers = ({
-  setReactFlowNodes,
+  // setReactFlowNodes,
   sendFieldUpdate,
   sendTogglePrimaryKey,
   sendToggleForeignKey,
@@ -23,9 +25,10 @@ export const useNodeHandlers = ({
   sendDeleteAttribute,
   sendForeignKeyConnect,
   sendForeignKeyDisconnect,
-  reactFlowNodes,
-}: UseNodeHandlersProps) => {
+}: // reactFlowNodes,
+UseNodeHandlersProps) => {
   const reactFlowNodesRef = useRef<any[]>([]);
+  const [reactFlowNodes, setReactFlowNodes, onNodesChange] = useNodesState([]);
 
   useEffect(() => {
     reactFlowNodesRef.current = reactFlowNodes;
@@ -174,34 +177,43 @@ export const useNodeHandlers = ({
   );
 
   // Add attribute handler
-  const handleAddAttribute = useCallback(
-    (modelName: string) => {
-      console.log("📤 Adding attribute to:", { modelName });
+  const handleAddAttribute = useCallback((modelId: string) => {
+    console.log("📤 Adding attribute to:", { modelId });
+    const newAttributeId = generateAttributeId();
 
-      const node = reactFlowNodesRef.current.find(
-        (n: any) => n.id === modelName
-      );
-      if (!node) {
-        console.error("❌ Node not found:", modelName);
-        return;
-      }
+    const newAttribute = {
+      id: newAttributeId,
+      name: "new_field",
+      dataType: "VARCHAR(255)",
+      isNullable: true,
+      isPrimaryKey: false,
+      isForeignKey: false,
+      attributeOrder: 0,
+    };
 
-      const modelId = node.data.id;
+    // Immediately add to UI
+    setReactFlowNodes((nds: any[]) =>
+      nds.map((node) =>
+        node.id === modelId
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                attributes: [...node.data.attributes, newAttribute],
+              },
+            }
+          : node
+      )
+    );
 
-      // KHÔNG cập nhật UI ngay, chỉ gửi WebSocket và chờ response
-      sendAddAttribute({
-        modelName,
-        modelId,
-        attributeName: "new_field",
-        dataType: "VARCHAR(255)",
-      });
-
-      console.log(
-        "📤 Sent add attribute request, waiting for backend response..."
-      );
-    },
-    [sendAddAttribute]
-  );
+    // KHÔNG cập nhật UI ngay, chỉ gửi WebSocket và chờ response
+    sendAddAttribute({
+      modelId,
+      newAttributeId,
+      attributeName: "new_field",
+      dataType: "VARCHAR(255)",
+    });
+  }, []);
 
   // Delete attribute handler
   const handleDeleteAttribute = useCallback(

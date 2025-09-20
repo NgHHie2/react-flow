@@ -6,14 +6,14 @@ import { Model } from "../SchemaVisualizer/SchemaVisualizer.types";
 
 interface ModelFooterProps {
   model: Model;
-  onAddAttribute: () => void;
+  onAddAttribute: (modelId: string) => void;
 }
 
 export const ModelFooter: React.FC<ModelFooterProps> = ({
   model,
   onAddAttribute,
 }) => {
-  const attributeCount = model.attributes.length;
+  const attributeCount = model.attributes?.length;
   const primaryKeys = model.attributes.filter(
     (attr) => attr.isPrimaryKey
   ).length;
@@ -52,7 +52,7 @@ export const ModelFooter: React.FC<ModelFooterProps> = ({
             size="xs"
             variant="ghost"
             colorScheme="green"
-            onClick={onAddAttribute}
+            onClick={() => onAddAttribute(model.id)}
             minWidth="16px"
             height="16px"
             p={0}
