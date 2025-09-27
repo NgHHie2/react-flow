@@ -84,21 +84,20 @@ export const useNodeHandlers = ({
   // Toggle key type handler
   const handleToggleKeyType = useCallback(
     (
-      modelName: string,
-      attributeId: string, // ✅ Đổi từ number sang string
+      modelId: string,
+      attributeId: string,
       keyType: "NORMAL" | "PRIMARY" | "FOREIGN"
     ) => {
       console.log("📤 handleToggleKeyType called:", {
-        modelName,
+        modelId,
         attributeId,
         keyType,
       });
 
       setReactFlowNodes((currentNodes: any) => {
         const updatedNodes = currentNodes.map((node: any) => {
-          if (node.id !== modelName) return node;
+          if (node.id !== modelId) return node;
 
-          const modelId = node.data.id;
           const currentAttr = node.data.attributes.find(
             (attr: any) => attr.id === attributeId
           );
@@ -136,10 +135,11 @@ export const useNodeHandlers = ({
           });
 
           // Send WebSocket based on target keyType
+          console.log("keyTYpe: ", keyType);
           if (keyType === "PRIMARY") {
-            sendTogglePrimaryKey({ modelName, modelId, attributeId });
+            sendTogglePrimaryKey({ modelId, attributeId });
           } else if (keyType === "FOREIGN") {
-            sendToggleForeignKey({ modelName, modelId, attributeId });
+            sendToggleForeignKey({ modelId, attributeId });
           }
 
           return {

@@ -22,7 +22,6 @@ export interface FieldUpdate extends BaseUpdate {
 }
 
 export interface ToggleKeyUpdate extends BaseUpdate {
-  modelName: string;
   modelId: string;
   attributeId: string;
 }

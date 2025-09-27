@@ -350,31 +350,9 @@ export const useSchemaVisualizer = () => {
     console.log("🌟 reactFlowNodes hiện tại:", reactFlowNodes);
   }, [reactFlowNodes]);
 
-  // Basic action handlers
-  const handleRefresh = useCallback(() => {
-    fetchSchemaData();
-  }, [fetchSchemaData]);
-
-  const handleReset = useCallback(() => {
-    initializeData();
-  }, [initializeData]);
-
-  const handleInitialize = useCallback(() => {
-    initializeData();
-  }, [initializeData]);
-
-  // Initialize data on first mount
-  useEffect(() => {
-    if (!hasInitialized.current) {
-      hasInitialized.current = true;
-      fetchSchemaData();
-    }
-  }, [fetchSchemaData]);
-
   // FIX 4: Ultra-stable callbacks with proper memoization
   const stableCallbacks = useMemo(
     () => ({
-      getAllModels: () => currentNodesRef.current.map((n) => n.data),
       onFieldUpdate: handleFieldUpdate,
       onToggleKeyType: handleToggleKeyType, // Signature: (modelName, attributeId, keyType)
       onAddAttribute: handleAddAttribute,
@@ -395,6 +373,27 @@ export const useSchemaVisualizer = () => {
       handleDeleteModel,
     ]
   );
+  // Basic action handlers
+  const handleInitialize = useCallback(() => {
+    initializeData(stableCallbacks); // ✅ Pass callbacks
+  }, [initializeData, stableCallbacks]);
+
+  const handleReset = useCallback(() => {
+    initializeData(stableCallbacks); // ✅ Pass callbacks
+  }, [initializeData, stableCallbacks]);
+
+  const handleRefresh = useCallback(() => {
+    fetchSchemaData(stableCallbacks); // ✅ Pass callbacks
+  }, [fetchSchemaData, stableCallbacks]);
+
+  // Initialize data on first mount
+  useEffect(() => {
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      // ✅ THAY ĐỔI: Pass stableCallbacks khi fetch initial data
+      fetchSchemaData(stableCallbacks);
+    }
+  }, [fetchSchemaData, stableCallbacks]);
 
   // FIX 5: Smarter node synchronization with change detection
   const nodesFingerprint = useMemo(() => {
@@ -446,16 +445,30 @@ export const useSchemaVisualizer = () => {
         positionMap.set(node.id, node.position);
       });
 
-      return nodes.map((node) => ({
+      // ✅ CRITICAL FIX: Create new nodes array with proper reactFlowNodes reference
+      const newNodes = nodes.map((node) => ({
         ...node,
         position: positionMap.get(node.id) || node.position,
         data: {
           ...node.data,
           ...stableCallbacks,
-          // Add allModels to prevent stale closures
-          allModels: nodes.map((n) => n.data),
+          // ✅ IMPORTANT: Don't override allModels, preserve it if exists
+          allModels: node.data.allModels || nodes.map((n) => n.data),
         },
       }));
+
+      // ✅ CRITICAL: Update reactFlowNodes reference for ALL nodes after creating array
+      newNodes.forEach((node) => {
+        node.data.reactFlowNodes = newNodes; // Self-reference to the new array
+      });
+
+      console.log("🔧 Updated reactFlowNodes references:", {
+        nodesCount: newNodes.length,
+        firstNodeHasReactFlowNodes: !!newNodes[0]?.data?.reactFlowNodes,
+        reactFlowNodesCount: newNodes[0]?.data?.reactFlowNodes?.length,
+      });
+
+      return newNodes;
     });
   }, [nodesFingerprint, stableCallbacks, nodes]);
 

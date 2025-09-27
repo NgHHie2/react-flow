@@ -1,7 +1,7 @@
 // src/SchemaVisualizer/ModelNode.tsx - Heavily optimized version
 import React, { memo, useMemo, useCallback } from "react";
 import { Box } from "@chakra-ui/react";
-import { NodeProps } from "reactflow";
+import { NodeProps, Node as ReactFlowNode } from "reactflow";
 import { Model, Attribute } from "./SchemaVisualizer.types";
 import { ModelHeader } from "../components/ModelHeader";
 import { ModelFooter } from "../components/ModelFooter";
@@ -9,14 +9,14 @@ import { FieldComponent } from "../components/FieldComponent";
 
 interface ModelNodeData extends Model {
   getAllModels?: () => Model[];
-  allModels?: Model[];
+  reactFlowNodes?: ReactFlowNode[];
   onFieldUpdate?: (
     fieldId: string,
     fieldName: string,
     fieldType: string
   ) => void;
   onToggleKeyType?: (
-    modelName: string,
+    modelId: string,
     attributeId: string,
     keyType: "NORMAL" | "PRIMARY" | "FOREIGN"
   ) => void;
@@ -55,55 +55,45 @@ export const ModelNode: React.FC<NodeProps<ModelNodeData>> = ({ data, id }) => {
   }, [data.attributes]);
 
   // ✅ Memoize all models with better dependency tracking
-  const allModels = useMemo(() => {
-    console.log(
-      "🔄 ModelNode - Getting allModels for",
-      data.name,
-      "at",
-      new Date().toISOString()
-    );
+  const reactFlowNodes = useMemo(() => {
+    console.log("🔄 ModelNode - Getting reactFlowNodes for", data.name);
 
-    let models: Model[] = [];
+    let nodes: ReactFlowNode[] = [];
 
-    if (data.getAllModels) {
-      models = data.getAllModels();
+    if (data.reactFlowNodes) {
+      nodes = data.reactFlowNodes;
       console.log(
-        "📦 From getAllModels():",
-        models.map((m) => `${m.name}(${m.id})`)
+        "📦 From reactFlowNodes prop:",
+        nodes.map((n) => `${n.data.name}(${n.id})`)
       );
-    } else if (data.allModels) {
-      models = data.allModels;
+    } else if (data.getAllModels) {
+      // ✅ Fallback: Convert models to ReactFlow nodes structure
+      const models = data.getAllModels();
+      nodes = models.map(
+        (model, index) =>
+          ({
+            id: model.id,
+            position: { x: 0, y: 0 }, // Dummy position
+            data: model,
+            type: "model",
+          } as ReactFlowNode)
+      );
       console.log(
-        "📦 From allModels prop:",
-        models.map((m) => `${m.name}(${m.id})`)
+        "📦 Converted from getAllModels:",
+        nodes.map((n) => `${n.data.name}(${n.id})`)
       );
     } else {
-      console.warn("⚠️ No allModels source available");
-      models = [];
+      console.warn("⚠️ No reactFlowNodes source available");
+      nodes = [];
     }
 
-    console.log(
-      "🎯 Final allModels for",
-      data.name,
-      ":",
-      models.map((m) => ({
-        name: m.name,
-        id: m.id,
-        hasAttributes: !!m.attributes,
-        attributeCount: m.attributes?.length || 0,
-      }))
-    );
-
-    return models;
+    return nodes;
   }, [
+    data.reactFlowNodes,
     data.getAllModels,
-    data.allModels,
     data.name,
-    // ✅ CRITICAL: Thêm dependency để force refresh khi có model nào đổi tên
     data.lastUpdate,
     data.lastNameUpdate,
-    // ✅ NEW: Thêm hash của tất cả model names để detect thay đổi
-    data.allModels?.map((m) => m.name).join("|"),
   ]);
 
   // ✅ Ultra-stable handlers with proper dependencies
@@ -142,7 +132,7 @@ export const ModelNode: React.FC<NodeProps<ModelNodeData>> = ({ data, id }) => {
 
   const handleToggleKeyType = useCallback(
     (
-      modelName: string,
+      modelId: string,
       attributeId: string, // ✅ FIXED: Now accepts attributeId instead of fieldIndex
       keyType: "NORMAL" | "PRIMARY" | "FOREIGN"
     ) => {
@@ -168,14 +158,14 @@ export const ModelNode: React.FC<NodeProps<ModelNodeData>> = ({ data, id }) => {
 
       if (currentType !== keyType) {
         console.log(`🔑 Key type toggle: ${currentType} -> ${keyType}`, {
-          modelName: data.name,
+          modelId: data.id,
           attributeId: attribute.id,
           attributeName: attribute.name,
         });
-        data.onToggleKeyType(data.name, attribute.id, keyType);
+        data.onToggleKeyType(data.id, attribute.id, keyType);
       }
     },
-    [sortedAttributes, data.onToggleKeyType, data.name]
+    [sortedAttributes, data.onToggleKeyType, data.id]
   );
 
   const handleAddAttribute = useCallback((modelId: string) => {
@@ -258,7 +248,7 @@ export const ModelNode: React.FC<NodeProps<ModelNodeData>> = ({ data, id }) => {
     console.log(data);
     data.onDeleteModel(data.id);
     console.log(data.onDeleteModel);
-  }, [data.onDeleteModel, data.attributes, data.name, allModels]);
+  }, [data.onDeleteModel, data.attributes, data.name]);
 
   // ✅ Generate unique keys for attributes to prevent re-rendering issues
   const attributeKeys = useMemo(() => {
@@ -300,7 +290,6 @@ export const ModelNode: React.FC<NodeProps<ModelNodeData>> = ({ data, id }) => {
             attribute={attribute}
             model={data}
             fieldIndex={index}
-            allModels={allModels}
             onFieldNameUpdate={handleFieldNameUpdate}
             onFieldTypeUpdate={handleFieldTypeUpdate}
             onToggleKeyType={handleToggleKeyType}

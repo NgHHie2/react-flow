@@ -16,7 +16,7 @@ export const useSchemaData = () => {
   const [schemaInfo, setSchemaInfo] = useState<SchemaData | null>(null);
   const toast = useToast();
 
-  const fetchSchemaData = useCallback(async (onFieldUpdateCallback?: any) => {
+  const fetchSchemaData = useCallback(async (callbacks?: any) => {
     try {
       setLoading(true);
       setError(null);
@@ -24,7 +24,8 @@ export const useSchemaData = () => {
       const data = await schemaApiService.getSchemaData();
       setSchemaInfo(data);
 
-      const reactFlowData = convertToReactFlowData(data, onFieldUpdateCallback);
+      // ✅ THAY ĐỔI: Pass callbacks object instead of single onFieldUpdateCallback
+      const reactFlowData = convertToReactFlowData(data, callbacks);
 
       console.log("Converted ReactFlow data:", reactFlowData);
       setNodes(reactFlowData.nodes);
@@ -38,13 +39,12 @@ export const useSchemaData = () => {
       setLoading(false);
     }
   }, []);
-
   const initializeData = useCallback(
-    async (onFieldUpdateCallback?: any) => {
+    async (callbacks?: any) => {
       try {
         setLoading(true);
         await schemaApiService.initializeSampleData();
-        await fetchSchemaData(onFieldUpdateCallback);
+        await fetchSchemaData(callbacks); // ✅ Pass callbacks
         toast({
           title: "Success",
           description: "Sample data initialized successfully",

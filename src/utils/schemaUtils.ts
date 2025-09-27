@@ -49,19 +49,38 @@ export const findModelByFieldId = (
 // Convert API data to ReactFlow format
 export const convertToReactFlowData = (
   data: SchemaData,
-  onFieldUpdate?: any
+  callbacks?: {
+    onFieldUpdate?: any;
+    onToggleKeyType?: any;
+    onAddAttribute?: any;
+    onDeleteAttribute?: any;
+    onForeignKeyTargetSelect?: any;
+    onForeignKeyDisconnect?: any;
+    onModelNameUpdate?: any;
+    onDeleteModel?: any;
+    getAllModels?: () => Model[];
+  }
 ) => {
-  // Create nodes from models
+  // Create nodes from models with ALL callbacks
   const nodes: Node[] = data.models.map((model: Model) => ({
     id: model.id,
     position: { x: model.positionX, y: model.positionY },
     data: {
       ...model,
       diagramId: data.id,
-      onFieldUpdate,
+      // ✅ THÊM TẤT CẢ CALLBACKS
+      ...callbacks,
+      // ✅ QUAN TRỌNG: Pass reference đến tất cả models để ForeignKeyTargetSelector có thể access
+      reactFlowNodes: [], // Sẽ được update sau
+      getAllModels: callbacks?.getAllModels || (() => data.models),
     },
     type: "model",
   }));
+
+  // ✅ UPDATE: Set reactFlowNodes reference cho tất cả nodes
+  nodes.forEach((node) => {
+    node.data.reactFlowNodes = nodes;
+  });
 
   // Create edges from connections within attributes
   const edges: Edge[] = [];
@@ -75,9 +94,11 @@ export const convertToReactFlowData = (
         // Create source and target handle IDs
         const sourceHandleId = `${model.id}-${attribute.id}-source`;
         const targetHandleId = `${connection.targetModelId}-${connection.targetAttributeId}-target`;
+
         console.log("connectionId: " + connection.id);
         console.log("source: " + model.id);
         console.log("target: " + connection.targetModelId);
+
         edges.push({
           id: edgeId,
           source: model.id,
@@ -89,7 +110,6 @@ export const convertToReactFlowData = (
             stroke: connection.strokeColor,
             strokeWidth: connection.strokeWidth,
           },
-
           label: connection.foreignKeyName,
           labelStyle: {
             fontSize: "8px",

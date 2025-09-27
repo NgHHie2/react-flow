@@ -143,7 +143,7 @@ export const useWebSocketHandlers = ({
     (data: any) => {
       setReactFlowNodes((currentNodes: any) => {
         const updatedNodes = currentNodes.map((node: any) => {
-          if (node.id !== data.modelName) return node;
+          if (node.id !== data.modelId) return node;
 
           const updatedAttributes = node.data.attributes.map((attr: any) => {
             if (attr.id === data.attributeId) {
@@ -174,7 +174,6 @@ export const useWebSocketHandlers = ({
           ...node,
           data: {
             ...node.data,
-            allModels: updatedNodes.map((n: any) => n.data),
           },
         }));
       });
@@ -189,7 +188,7 @@ export const useWebSocketHandlers = ({
     (data: any) => {
       setReactFlowNodes((currentNodes: any) => {
         const updatedNodes = currentNodes.map((node: any) => {
-          if (node.id !== data.modelName) return node;
+          if (node.id !== data.modelId) return node;
 
           const updatedAttributes = node.data.attributes.map((attr: any) => {
             if (attr.id === data.attributeId) {
@@ -219,7 +218,6 @@ export const useWebSocketHandlers = ({
           ...node,
           data: {
             ...node.data,
-            allModels: updatedNodes.map((n: any) => n.data),
           },
         }));
       });

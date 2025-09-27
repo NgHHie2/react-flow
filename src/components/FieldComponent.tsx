@@ -1,7 +1,7 @@
 // src/components/FieldComponent.tsx - Fresh version with allModels deep copy
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { Box, Flex, IconButton, Tooltip, Button } from "@chakra-ui/react";
-import { Handle, Position } from "reactflow";
+import { Handle, Position, Node as ReactFlowNode } from "reactflow";
 import { EditableField } from "./EditableField";
 import { ForeignKeyTargetSelector } from "./ForeignKeyTargetSelector";
 import { Attribute, Model } from "../SchemaVisualizer/SchemaVisualizer.types";
@@ -11,11 +11,10 @@ interface FieldComponentProps {
   attribute: Attribute;
   model: Model;
   fieldIndex: number;
-  allModels: Model[];
   onFieldNameUpdate: (fieldIndex: number, newName: string) => void;
   onFieldTypeUpdate: (fieldIndex: number, newType: string) => void;
   onToggleKeyType: (
-    modelName: string,
+    modelId: string,
     attributeId: string,
     newKeyType: "NORMAL" | "PRIMARY" | "FOREIGN"
   ) => void;
@@ -35,7 +34,6 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
   attribute,
   model,
   fieldIndex,
-  allModels,
   onFieldNameUpdate,
   onFieldTypeUpdate,
   onToggleKeyType,
@@ -46,49 +44,6 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const [showFKSelector, setShowFKSelector] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // ✅ Tạo deep copy của allModels để đảm bảo fresh data
-  const freshAllModels = useMemo(() => {
-    if (!allModels || !Array.isArray(allModels)) {
-      console.log("🚫 No allModels available");
-      return [];
-    }
-
-    // Deep clone allModels để tránh reference issues
-    const clonedModels = allModels.map((model) => ({
-      ...model, // ✅ Spread tất cả properties của Model
-      attributes:
-        model.attributes?.map((attr) => ({
-          ...attr, // ✅ Spread tất cả properties của Attribute
-          connection: attr.connection
-            ? {
-                ...attr.connection, // ✅ Spread tất cả properties của Connection
-              }
-            : undefined,
-        })) || [],
-    }));
-
-    console.log("🔄 FieldComponent - Created fresh allModels copy:", {
-      modelName: model.name,
-      attributeName: attribute.name,
-      originalCount: allModels.length,
-      clonedCount: clonedModels.length,
-      clonedData: clonedModels.map((m) => ({ id: m.id, name: m.name })),
-      timestamp: new Date().toISOString(),
-    });
-
-    return clonedModels;
-  }, [allModels, model.name, attribute.name]); // Re-compute khi allModels hoặc current model/attribute thay đổi
-
-  // ✅ Debug showFKSelector state changes
-  useEffect(() => {
-    console.log("🎭 showFKSelector changed:", {
-      modelName: model.name,
-      attributeName: attribute.name,
-      showFKSelector,
-      timestamp: Date.now(),
-    });
-  }, [showFKSelector, model.name, attribute.name]);
 
   // ✅ Click outside handler
   useEffect(() => {
@@ -177,39 +132,10 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
   const handleRightClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-
-    console.log("🖱️ Right click handler:", {
-      modelName: model.name,
-      attributeName: attribute.name,
-      isFK,
-      isPK,
-      canOpenSelector: isFK && !isPK,
-      currentShowFKSelector: showFKSelector,
-      freshAllModelsCount: freshAllModels.length,
-      freshAllModelsData: freshAllModels.map((m) => ({
-        name: m.name,
-        id: m.id,
-      })),
-    });
-
     // Chỉ cho phép mở FK selector nếu là Foreign Key thuần túy (không phải PK)
     if (isFK && !isPK) {
       const newState = !showFKSelector;
-      console.log("🔓 Toggling FK selector:", {
-        from: showFKSelector,
-        to: newState,
-        freshModelsWillPass: freshAllModels.map((m) => ({
-          name: m.name,
-          id: m.id,
-        })),
-      });
       setShowFKSelector(newState);
-    } else {
-      console.log("❌ Cannot open FK selector:", {
-        isFK,
-        isPK,
-        reason: isPK ? "Is Primary Key" : !isFK ? "Not Foreign Key" : "Unknown",
-      });
     }
   };
 
@@ -321,25 +247,6 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
       </>
     );
   };
-
-  // ✅ Debug before rendering FK selector
-  if (isFK && !isPK) {
-    console.log(
-      "📦 About to render ForeignKeyTargetSelector with FRESH data:",
-      {
-        modelName: model.name,
-        attributeName: attribute.name,
-        freshAllModelsCount: freshAllModels.length,
-        freshAllModelsNames: freshAllModels.map((m) => m.name),
-        freshAllModelsDetails: freshAllModels.map((m) => ({
-          id: m.id,
-          name: m.name,
-          attributeCount: m.attributes?.length || 0,
-        })),
-        timestamp: Date.now(),
-      }
-    );
-  }
 
   return (
     <Box
@@ -506,7 +413,6 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
                   }
                 : undefined
             }
-            allModels={freshAllModels} // ✅ Pass fresh cloned data
             onTargetSelect={handleForeignKeyTargetSelectLocal}
             onDisconnect={handleForeignKeyDisconnectLocal}
             inline={true}

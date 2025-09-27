@@ -1,5 +1,7 @@
-// src/components/ForeignKeyTargetSelector.tsx - Completely rewritten
+// ForeignKeyTargetSelector.tsx - CORRECT useStore usage
 import React, { useMemo } from "react";
+import { useStore } from "reactflow";
+import type { ReactFlowState } from "reactflow";
 import {
   Popover,
   PopoverTrigger,
@@ -12,7 +14,7 @@ import {
   useDisclosure,
 } from "@chakra-ui/react";
 import { ChevronDown, Link } from "lucide-react";
-import { Attribute, Model } from "../SchemaVisualizer/SchemaVisualizer.types";
+import { Attribute } from "../SchemaVisualizer/SchemaVisualizer.types";
 
 interface PrimaryKeyOption {
   modelId: string;
@@ -28,7 +30,6 @@ interface ForeignKeyTargetSelectorProps {
     targetModelId: string;
     targetAttributeId: string;
   };
-  allModels: Model[];
   onTargetSelect: (targetModelId: string, targetAttributeId: string) => void;
   onDisconnect: () => void;
   inline?: boolean;
@@ -40,47 +41,41 @@ export const ForeignKeyTargetSelector: React.FC<
   currentModelId,
   currentAttributeId,
   currentConnection,
-  allModels,
   onTargetSelect,
   onDisconnect,
   inline = false,
 }) => {
   const { isOpen, onOpen, onClose } = useDisclosure();
 
-  // ✅ Tính toán Primary Key options một cách đơn giản và trực tiếp
-  const primaryKeyOptions: PrimaryKeyOption[] = useMemo(() => {
-    const timestamp = Date.now();
-    console.log(
-      "🔄 [ForeignKeyTargetSelector] Computing PK options at",
-      timestamp
-    );
-    console.log(
-      "📦 [ForeignKeyTargetSelector] Received allModels:",
-      allModels?.map((m) => ({
-        id: m.id,
-        name: m.name,
-        attributeCount: m.attributes?.length,
-      }))
-    );
+  // ✅ CORRECT: Access nodes from ReactFlow store
+  const allNodes = useStore((state: ReactFlowState) => state.nodeInternals);
 
-    if (!Array.isArray(allModels) || allModels.length === 0) {
-      console.warn("⚠️ [ForeignKeyTargetSelector] No valid allModels provided");
+  // ✅ ALTERNATIVE: If nodeInternals doesn't work, try this:
+  // const allNodes = useStore((state) => Array.from(state.nodeInternals.values()));
+
+  const primaryKeyOptions: PrimaryKeyOption[] = useMemo(() => {
+    // ✅ Convert Map to Array if needed
+    const nodesArray = Array.isArray(allNodes)
+      ? allNodes
+      : Array.from(allNodes.values());
+
+    if (!nodesArray || nodesArray.length === 0) {
+      console.warn("⚠️ No nodes in ReactFlow store");
       return [];
     }
 
     const options: PrimaryKeyOption[] = [];
 
-    allModels.forEach((model) => {
+    nodesArray.forEach((node) => {
+      const model = node.data;
+
       if (!model?.attributes || !Array.isArray(model.attributes)) {
-        console.warn(`⚠️ [ForeignKeyTargetSelector] Invalid model:`, model);
+        console.warn(`⚠️ Invalid node data:`, node);
         return;
       }
 
-      model.attributes.forEach((attr) => {
+      model.attributes.forEach((attr: Attribute) => {
         if (attr?.isPrimaryKey === true) {
-          console.log(
-            `✅ [ForeignKeyTargetSelector] Found PK: ${model.name}.${attr.name}`
-          );
           options.push({
             modelId: model.id,
             modelName: model.name,
@@ -91,62 +86,43 @@ export const ForeignKeyTargetSelector: React.FC<
       });
     });
 
-    console.log(
-      "🎯 [ForeignKeyTargetSelector] Final PK options:",
-      options.map((opt) => `${opt.modelName}.${opt.attributeName}`)
-    );
-
     return options;
-  }, [allModels]); // Chỉ depend vào allModels
+  }, [allNodes]); // Simple dependency
 
-  // ✅ Handlers đơn giản
-  const handleTargetSelect = (option: PrimaryKeyOption) => {
-    console.log(
-      "🔗 [ForeignKeyTargetSelector] Selecting:",
-      `${option.modelName}.${option.attributeName}`
+  const getCurrentTargetDisplay = () => {
+    if (!currentConnection) return "Select target...";
+
+    const nodesArray = Array.isArray(allNodes)
+      ? allNodes
+      : Array.from(allNodes.values());
+
+    const targetNode = nodesArray.find(
+      (node) => node.data.id === currentConnection.targetModelId
     );
+    const targetAttribute = targetNode?.data.attributes?.find(
+      (a: any) => a.id === currentConnection.targetAttributeId
+    );
+
+    if (targetNode?.data && targetAttribute) {
+      return `${targetNode.data.name}.${targetAttribute.name}`;
+    }
+
+    return `${currentConnection.targetModelId}.${currentConnection.targetAttributeId}`;
+  };
+
+  const handleTargetSelect = (option: PrimaryKeyOption) => {
+    console.log("🔗 Selecting:", `${option.modelName}.${option.attributeName}`);
     onTargetSelect(option.modelId, option.attributeId);
     if (!inline) onClose();
   };
 
   const handleDisconnect = () => {
-    console.log("🔓 [ForeignKeyTargetSelector] Disconnecting FK");
+    console.log("🔓 Disconnecting FK");
     onDisconnect();
     if (!inline) onClose();
   };
 
-  // ✅ Hiển thị tên connection hiện tại
-  const getCurrentTargetDisplay = () => {
-    if (!currentConnection) return "Select target...";
-
-    // Tìm model và attribute thực tế để hiển thị tên đúng
-    const targetModel = allModels.find(
-      (m) => m.id === currentConnection.targetModelId
-    );
-    const targetAttribute = targetModel?.attributes?.find(
-      (a) => a.id === currentConnection.targetAttributeId
-    );
-
-    if (targetModel && targetAttribute) {
-      return `${targetModel.name}.${targetAttribute.name}`;
-    }
-
-    // Fallback nếu không tìm thấy
-    return `${currentConnection.targetModelId}.${currentConnection.targetAttributeId}`;
-  };
-
-  // ✅ Component logging
-  console.log("🔄 [ForeignKeyTargetSelector] Render:", {
-    currentModelId,
-    currentAttributeId,
-    allModelsCount: allModels?.length,
-    allModelsNames: allModels?.map((m) => m.name),
-    pkOptionsCount: primaryKeyOptions.length,
-    currentConnection,
-    inline,
-  });
-
-  // ✅ Inline mode
+  // Rest of the component remains the same...
   if (inline) {
     return (
       <VStack spacing={2} align="stretch" w="100%">
@@ -181,10 +157,7 @@ export const ForeignKeyTargetSelector: React.FC<
                   currentConnection?.targetModelId === option.modelId &&
                   currentConnection?.targetAttributeId === option.attributeId
                 }
-                _active={{
-                  bg: "blue.500",
-                  color: "white",
-                }}
+                _active={{ bg: "blue.500", color: "white" }}
               >
                 🔑 {option.modelName}.{option.attributeName}
               </Button>
@@ -212,7 +185,7 @@ export const ForeignKeyTargetSelector: React.FC<
     );
   }
 
-  // ✅ Popover mode
+  // Popover mode
   return (
     <Popover
       isOpen={isOpen}
@@ -230,10 +203,7 @@ export const ForeignKeyTargetSelector: React.FC<
           minWidth="140px"
           justifyContent="space-between"
           color={currentConnection ? "blue.300" : "gray.400"}
-          _hover={{
-            bg: "rgba(74, 144, 226, 0.1)",
-            color: "blue.200",
-          }}
+          _hover={{ bg: "rgba(74, 144, 226, 0.1)", color: "blue.200" }}
         >
           <Text noOfLines={1} fontSize="sm">
             {getCurrentTargetDisplay()}
