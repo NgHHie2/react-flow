@@ -21,7 +21,7 @@ interface ModelNodeData extends Model {
     keyType: "NORMAL" | "PRIMARY" | "FOREIGN"
   ) => void;
   onAddAttribute?: (modelId: string) => void;
-  onDeleteAttribute?: (modelName: string, attributeId: string) => void;
+  onDeleteAttribute?: (modelId: string, attributeId: string) => void;
   onForeignKeyTargetSelect?: (
     attributeId: string,
     targetModelId: string,
@@ -184,15 +184,12 @@ export const ModelNode: React.FC<NodeProps<ModelNodeData>> = ({ data, id }) => {
     }
   }, []);
 
-  const handleDeleteAttribute = useCallback(
-    (attributeId: string) => {
-      if (data.onDeleteAttribute) {
-        console.log(`➖ Deleting attribute ${attributeId} from ${data.name}`);
-        data.onDeleteAttribute(data.name, attributeId);
-      }
-    },
-    [data.onDeleteAttribute, data.name]
-  );
+  const handleDeleteAttribute = useCallback((attributeId: string) => {
+    if (data.onDeleteAttribute) {
+      console.log(`➖ Deleting attribute ${attributeId} from ${data.name}`);
+      data.onDeleteAttribute(data.id, attributeId);
+    }
+  }, []);
 
   const handleForeignKeyTargetSelect = useCallback(
     (attributeId: string, targetModelId: string, targetAttributeId: string) => {

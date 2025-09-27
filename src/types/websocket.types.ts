@@ -38,7 +38,6 @@ export interface AddAttributeUpdate extends BaseUpdate {
 }
 
 export interface DeleteAttributeUpdate extends BaseUpdate {
-  modelName: string;
   modelId: string;
   attributeId: string;
 }

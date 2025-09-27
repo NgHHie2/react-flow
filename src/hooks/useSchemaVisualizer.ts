@@ -117,7 +117,7 @@ export const useSchemaVisualizer = () => {
   // FIX 2: Stable model operation handlers
   const handleAddModel = useCallback(() => {
     if (!schemaInfo) return;
-
+    console.log("kho hieu: ", reactFlowNodes);
     const newModelId = generateModelId();
     const positionX = Math.random() * 400 + 100;
     const positionY = Math.random() * 300 + 100;
@@ -172,7 +172,38 @@ export const useSchemaVisualizer = () => {
 
       console.log("newnode: ", newNode);
 
-      const updatedNodes = [...currentNodes, newNode];
+      const updatedNodes = [
+        ...currentNodes.map((node: any) => ({
+          ...node,
+          data: {
+            ...node.data,
+            allModels: [
+              ...(node.data.allModels ?? []),
+              {
+                id: newModelId,
+                name: "Model",
+                modelType: "TABLE",
+                attributes: [], // hoặc các field mặc định
+              },
+            ],
+          },
+        })),
+        {
+          ...newNode,
+          data: {
+            ...newNode.data,
+            allModels: [
+              ...currentNodes.map((n: any) => n.data),
+              {
+                id: newModelId,
+                name: "Model",
+                modelType: "TABLE",
+                attributes: [],
+              },
+            ],
+          },
+        },
+      ];
 
       return updatedNodes;
     });
@@ -277,14 +308,34 @@ export const useSchemaVisualizer = () => {
       // }
 
       console.log(`🗑️ Deleting model: ${modelId}`);
-      setReactFlowNodes((prevNodes: any) => {
-        const filteredNodes = prevNodes.filter((node: any) => {
-          // Xóa theo cả modelName và modelId để chắc chắn
-          const shouldKeep = node.data.id !== modelId;
-          return shouldKeep;
-        });
+      setReactFlowNodes((prevNodes: any[]) => {
+        console.log("🔍 Trước khi xoá:", prevNodes);
 
-        return filteredNodes;
+        const afterFilter = prevNodes
+          // 1️⃣ Loại bỏ node có id = modelId
+          .filter((node) => node.id !== modelId)
+          // 2️⃣ Đồng thời xoá model khỏi allModels của các node còn lại
+          .map((node) => {
+            const newAllModels = node.data.allModels?.filter(
+              (m: any) => m.id !== modelId
+            );
+            console.log("📌 Node sau khi filter allModels:", {
+              nodeId: node.id,
+              before: node.data.allModels,
+              after: newAllModels,
+            });
+
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                allModels: newAllModels,
+              },
+            };
+          });
+
+        console.log("✅ Sau khi xoá:", afterFilter);
+        return afterFilter;
       });
 
       // Gửi WebSocket với cả modelName và modelId
@@ -295,6 +346,9 @@ export const useSchemaVisualizer = () => {
     },
     [reactFlowNodes, sendDeleteModel, isConnected]
   );
+  useEffect(() => {
+    console.log("🌟 reactFlowNodes hiện tại:", reactFlowNodes);
+  }, [reactFlowNodes]);
 
   // Basic action handlers
   const handleRefresh = useCallback(() => {

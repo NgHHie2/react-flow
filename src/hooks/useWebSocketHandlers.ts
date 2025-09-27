@@ -231,60 +231,55 @@ export const useWebSocketHandlers = ({
   );
 
   // Sửa handleAddAttribute trong useWebSocketHandlers.ts - đảm bảo allModels được update
-  const handleAddAttribute = useCallback(
-    (data: any) => {
-      console.log("➕ Received add attribute response from backend:", data);
+  const handleAddAttribute = useCallback((data: any) => {
+    console.log("➕ Received add attribute response from backend:", data);
 
-      if (data.realAttributeId) {
-        console.log("✅ Adding attribute with real ID:", data.realAttributeId);
+    if (data.realAttributeId) {
+      console.log("✅ Adding attribute with real ID:", data.realAttributeId);
 
-        setReactFlowNodes((currentNodes: any) => {
-          const updatedNodes = currentNodes.map((node: any) => {
-            if (node.id !== data.modelName) return node;
+      setReactFlowNodes((currentNodes: any) => {
+        const updatedNodes = currentNodes.map((node: any) => {
+          if (node.id !== data.modelId) return node;
 
-            const newAttribute = {
-              id: data.realAttributeId, // Real ID từ backend
-              name: data.attributeName,
-              dataType: data.dataType,
-              isNullable: true,
-              isPrimaryKey: false,
-              isForeignKey: false,
-              attributeOrder: node.data.attributes.length,
-            };
+          const newAttribute = {
+            id: data.realAttributeId, // Real ID từ backend
+            name: data.attributeName,
+            dataType: data.dataType,
+            isNullable: true,
+            isPrimaryKey: false,
+            isForeignKey: false,
+            attributeOrder: node.data.attributes.length,
+          };
 
-            const updatedAttributes = [...node.data.attributes, newAttribute];
+          const updatedAttributes = [...node.data.attributes, newAttribute];
 
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                attributes: updatedAttributes,
-                // ⭐ QUAN TRỌNG: Update allModels để tất cả nodes biết về attribute mới
-                allModels: currentNodes.map((n: any) => ({
-                  ...n.data,
-                  attributes:
-                    n.id === data.modelName
-                      ? updatedAttributes
-                      : n.data.attributes,
-                })),
-                lastAttributeUpdate: Date.now(), // Force re-render
-              },
-            };
-          });
-
-          // ⭐ Update allModels cho TẤT CẢ nodes, không chỉ node hiện tại
-          return updatedNodes.map((node: any) => ({
+          return {
             ...node,
             data: {
               ...node.data,
-              allModels: updatedNodes.map((n: any) => n.data),
+              attributes: updatedAttributes,
+              // ⭐ QUAN TRỌNG: Update allModels để tất cả nodes biết về attribute mới
+              allModels: currentNodes.map((n: any) => ({
+                ...n.data,
+                attributes:
+                  n.id === data.modelId ? updatedAttributes : n.data.attributes,
+              })),
+              lastAttributeUpdate: Date.now(), // Force re-render
             },
-          }));
+          };
         });
-      }
-    },
-    [setReactFlowNodes]
-  );
+
+        // ⭐ Update allModels cho TẤT CẢ nodes, không chỉ node hiện tại
+        return updatedNodes.map((node: any) => ({
+          ...node,
+          data: {
+            ...node.data,
+            allModels: updatedNodes.map((n: any) => n.data),
+          },
+        }));
+      });
+    }
+  }, []);
 
   const handleDeleteAttribute = useCallback(
     (data: any) => {
@@ -295,7 +290,7 @@ export const useWebSocketHandlers = ({
 
         setReactFlowNodes((currentNodes: any) => {
           const updatedNodes = currentNodes.map((node: any) => {
-            if (node.id !== data.modelName) return node;
+            if (node.id !== data.modelId) return node;
 
             const updatedAttributes = node.data.attributes.filter(
               (attr: any) => attr.id !== data.attributeId
@@ -310,7 +305,7 @@ export const useWebSocketHandlers = ({
                 allModels: currentNodes.map((n: any) => ({
                   ...n.data,
                   attributes:
-                    n.id === data.modelName
+                    n.id === data.modelId
                       ? updatedAttributes
                       : n.data.attributes,
                 })),
@@ -447,24 +442,22 @@ export const useWebSocketHandlers = ({
     (data: any) => {
       console.log("🗑️ Received delete model from backend:", data);
 
-      setReactFlowNodes((prevNodes: any) => {
-        const filteredNodes = prevNodes.filter((node: any) => {
-          // Xóa theo cả modelName và modelId để chắc chắn
-          const shouldKeep =
-            node.id !== data.modelName && node.data.id !== data.modelId;
-
-          if (!shouldKeep) {
-            console.log("🗑️ Deleting node:", {
-              nodeId: node.id,
-              dataId: node.data.id,
-              matchedBy: node.id === data.modelName ? "modelName" : "modelId",
-            });
-          }
-
-          return shouldKeep;
-        });
-
-        return filteredNodes;
+      setReactFlowNodes((prevNodes: any[]) => {
+        return (
+          prevNodes
+            // 1️⃣ Loại bỏ node có id = modelId
+            .filter((node) => node.id !== data.modelId)
+            // 2️⃣ Đồng thời xóa model khỏi allModels của các node còn lại
+            .map((node) => ({
+              ...node,
+              data: {
+                ...node.data,
+                allModels: node.data.allModels?.filter(
+                  (m: any) => m.id !== data.modelId
+                ),
+              },
+            }))
+        );
       });
 
       // ⭐ QUAN TRỌNG: Cũng cần update data store để đồng bộ
