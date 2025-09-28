@@ -1,5 +1,11 @@
 // src/components/FieldComponent.tsx
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+  useCallback,
+} from "react";
 import { Box, Flex, IconButton, Tooltip, Button } from "@chakra-ui/react";
 import { Handle, Position, Node as ReactFlowNode } from "reactflow";
 import { EditableField } from "./EditableField";
@@ -44,27 +50,30 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const [showFKSelector, setShowFKSelector] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // ✅ Click outside handler
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+  const handleBodyClick = useCallback(
+    (e: MouseEvent) => {
+      const target = e.target as Element;
       if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
+        !target.closest(
+          `[data-model-id="${model.id}"][data-attribute-id="${attribute.id}"]`
+        )
       ) {
-        console.log("🔒 Closing FK selector due to outside click");
         setShowFKSelector(false);
       }
-    };
-
+    },
+    [model.id, attribute.id]
+  );
+  // ✅ Click outside handler
+  useEffect(() => {
     if (showFKSelector) {
-      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("click", handleBodyClick, true);
+      document.addEventListener("mousedown", handleBodyClick, true);
     }
-
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("click", handleBodyClick, true);
+      document.removeEventListener("mousedown", handleBodyClick, true);
     };
-  }, [showFKSelector]);
+  }, [showFKSelector, handleBodyClick]);
 
   const isPK = attribute.isPrimaryKey;
   const isFK = attribute.isForeignKey;
@@ -111,7 +120,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
       case "FOREIGN":
         return "Click to set as Foreign Key";
       case "NORMAL":
-        return "Click to remove key status";
+        return "Click right: pick target key | left: set as normal field";
       default:
         return "Click to toggle key type";
     }
@@ -132,10 +141,8 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
   const handleRightClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Chỉ cho phép mở FK selector nếu là Foreign Key thuần túy (không phải PK)
     if (isFK && !isPK) {
-      const newState = !showFKSelector;
-      setShowFKSelector(newState);
+      setShowFKSelector(!showFKSelector);
     }
   };
 
@@ -284,11 +291,6 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
                 justifyContent="center"
                 width="16px"
                 height="16px"
-                title={
-                  isFK && !isPK
-                    ? "Left click: toggle type | Right click: FK selector"
-                    : getTooltipText()
-                }
               >
                 {getFieldIcon()}
               </Box>
@@ -392,7 +394,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
           position="absolute"
           top="100%"
           left="0"
-          zIndex={1000}
+          zIndex={9999}
           bg="gray.800"
           border="1px solid"
           borderColor="gray.600"

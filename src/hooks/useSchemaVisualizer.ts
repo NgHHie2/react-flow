@@ -52,14 +52,6 @@ export const useSchemaVisualizer = () => {
 
   // WebSocket handlers
   const websocketHandlers = useWebSocketHandlers({
-    updateNodePosition,
-    updateFieldName,
-    updateFieldType,
-    addAttribute,
-    deleteAttribute,
-    addModel,
-    updateModelName,
-    deleteModel,
     setReactFlowNodes,
     setIsUpdatingFromWebSocket,
   });
@@ -475,11 +467,11 @@ export const useSchemaVisualizer = () => {
             sourceHandle: handlePositions.sourceHandleId,
             targetHandle: handlePositions.targetHandleId,
             animated: connection.isAnimated || true,
-            type: "smoothstep",
-            pathOptions: {
-              borderRadius: 30,
-              offset: 50,
-            },
+            type: "step",
+            // pathOptions: {
+            //   borderRadius: 80,
+            //   offset: 50,
+            // },
             style: {
               strokeWidth: 2,
               stroke: connection.strokeColor || "#4A90E2",

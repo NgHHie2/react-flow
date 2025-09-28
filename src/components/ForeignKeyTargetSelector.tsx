@@ -217,6 +217,7 @@ export const ForeignKeyTargetSelector: React.FC<
         color="white"
         fontSize="sm"
         minWidth="220px"
+        zIndex={2000}
       >
         <PopoverBody p={3}>
           <VStack spacing={2} align="stretch">
