@@ -17,8 +17,16 @@ export interface FieldUpdate extends BaseUpdate {
   attributeId: string;
   attributeName: string;
   attributeType: string;
-  modelName: string;
   modelId: string;
+}
+
+export interface FieldNameUpdate extends BaseUpdate {
+  attributeId: string;
+  attributeName: string;
+}
+export interface FieldTypeUpdate extends BaseUpdate {
+  attributeId: string;
+  attributeType: string;
 }
 
 export interface ToggleKeyTypeUpdate extends BaseUpdate {
@@ -77,7 +85,8 @@ export interface WebSocketResponse<T> {
 // Message handlers
 export interface MessageHandler {
   onNodePositionUpdate?: (data: NodePositionUpdate) => void;
-  onFieldUpdate?: (data: FieldUpdate) => void;
+  onFieldNameUpdate?: (data: FieldNameUpdate) => void;
+  onFieldTypeUpdate?: (data: FieldTypeUpdate) => void;
   onToggleKeyType?: (data: ToggleKeyTypeUpdate) => void;
   onAddAttribute?: (data: AddAttributeUpdate) => void;
   onDeleteAttribute?: (data: DeleteAttributeUpdate) => void;

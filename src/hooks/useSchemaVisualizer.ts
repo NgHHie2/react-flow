@@ -28,7 +28,8 @@ export const useSchemaVisualizer = () => {
     fetchSchemaData,
     initializeData,
     updateNodePosition,
-    updateField,
+    updateFieldName,
+    updateFieldType,
     addAttribute,
     deleteAttribute,
     addModel,
@@ -52,7 +53,8 @@ export const useSchemaVisualizer = () => {
   // WebSocket handlers
   const websocketHandlers = useWebSocketHandlers({
     updateNodePosition,
-    updateField,
+    updateFieldName,
+    updateFieldType,
     addAttribute,
     deleteAttribute,
     addModel,
@@ -66,7 +68,8 @@ export const useSchemaVisualizer = () => {
   const {
     isConnected,
     sendNodePositionUpdate,
-    sendFieldUpdate,
+    sendFieldNameUpdate,
+    sendFieldTypeUpdate,
     sendToggleKeyType,
     sendAddAttribute,
     sendDeleteAttribute,
@@ -79,7 +82,8 @@ export const useSchemaVisualizer = () => {
 
   // Node action handlers
   const {
-    handleFieldUpdate,
+    handleFieldNameUpdate,
+    handleFieldTypeUpdate,
     handleToggleKeyType,
     handleAddAttribute,
     handleDeleteAttribute,
@@ -87,7 +91,8 @@ export const useSchemaVisualizer = () => {
     handleForeignKeyDisconnect,
   } = useNodeHandlers({
     setReactFlowNodes,
-    sendFieldUpdate,
+    sendFieldNameUpdate,
+    sendFieldTypeUpdate,
     sendToggleKeyType,
     sendAddAttribute,
     sendDeleteAttribute,
@@ -123,7 +128,8 @@ export const useSchemaVisualizer = () => {
       const existingNodeWithCallbacks = currentNodes[0]; // Lấy callback từ node đầu tiên
       const callbacks = existingNodeWithCallbacks
         ? {
-            onFieldUpdate: existingNodeWithCallbacks.data.onFieldUpdate,
+            onFieldNameUpdate: existingNodeWithCallbacks.data.onFieldNameUpdate,
+            onFieldTypeUpdate: existingNodeWithCallbacks.data.onFieldTypeUpdate,
             onToggleKeyType: existingNodeWithCallbacks.data.onToggleKeyType,
             onAddAttribute: existingNodeWithCallbacks.data.onAddAttribute,
             onDeleteAttribute: existingNodeWithCallbacks.data.onDeleteAttribute,
@@ -284,7 +290,8 @@ export const useSchemaVisualizer = () => {
   // FIX 4: Ultra-stable callbacks with proper memoization
   const stableCallbacks = useMemo(
     () => ({
-      onFieldUpdate: handleFieldUpdate,
+      onFieldNameUpdate: handleFieldNameUpdate,
+      onFieldTypeUpdate: handleFieldTypeUpdate,
       onToggleKeyType: handleToggleKeyType, // Signature: (modelName, attributeId, keyType)
       onAddAttribute: handleAddAttribute,
       onDeleteAttribute: handleDeleteAttribute,
@@ -294,7 +301,8 @@ export const useSchemaVisualizer = () => {
       onDeleteModel: handleDeleteModel,
     }),
     [
-      handleFieldUpdate,
+      handleFieldNameUpdate,
+      handleFieldTypeUpdate,
       handleToggleKeyType,
       handleAddAttribute,
       handleDeleteAttribute,

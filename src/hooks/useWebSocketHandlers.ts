@@ -3,7 +3,8 @@ import { useRef, useEffect, useCallback } from "react";
 
 interface UseWebSocketHandlersProps {
   updateNodePosition: any;
-  updateField: any;
+  updateFieldName: any;
+  updateFieldType: any;
   addAttribute: any;
   deleteAttribute: any;
   setReactFlowNodes: any;
@@ -15,7 +16,8 @@ interface UseWebSocketHandlersProps {
 
 export const useWebSocketHandlers = ({
   updateNodePosition,
-  updateField,
+  updateFieldName,
+  updateFieldType,
   addAttribute,
   deleteAttribute,
   addModel,
@@ -61,70 +63,24 @@ export const useWebSocketHandlers = ({
     [updateNodePosition, setReactFlowNodes, setIsUpdatingFromWebSocket]
   );
 
-  const handleFieldUpdate = useCallback(
+  const handleFieldNameUpdate = useCallback(
     (data: any) => {
       console.log("✏️ Received field update from OTHER client:", data);
 
-      setReactFlowNodes((currentNodes: any) => {
-        console.log("🔍 Looking for field to update:", {
-          modelName: data.modelName,
-          attributeId: data.attributeId,
-          newName: data.attributeName,
-          newType: data.attributeType,
-        });
+      // ⭐ Cũng update data store
+      updateFieldName(data.attributeId, data.attributeName);
+    },
+    [setReactFlowNodes]
+  );
 
-        const updatedNodes = currentNodes.map((node: any) => {
-          if (node.id !== data.modelName) return node;
-
-          const hasAttribute = node.data.attributes.some(
-            (attr: any) => attr.id === data.attributeId
-          );
-
-          if (!hasAttribute) {
-            console.warn(
-              "⚠️ Attribute not found:",
-              data.attributeId,
-              "in model:",
-              data.modelName
-            );
-            return node;
-          }
-
-          console.log("✅ Found attribute to update");
-
-          const updatedAttributes = node.data.attributes.map((attr: any) => {
-            if (attr.id === data.attributeId) {
-              return {
-                ...attr,
-                name: data.attributeName,
-                dataType: data.attributeType,
-              };
-            }
-            return attr;
-          });
-
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              attributes: updatedAttributes,
-              lastFieldUpdate: Date.now(),
-            },
-          };
-        });
-
-        return updatedNodes;
-      });
+  const handleFieldTypeUpdate = useCallback(
+    (data: any) => {
+      console.log("✏️ Received field update from OTHER client:", data);
 
       // ⭐ Cũng update data store
-      updateField(
-        data.modelName,
-        data.attributeId,
-        data.attributeName,
-        data.attributeType
-      );
+      updateFieldType(data.attributeId, data.attributeType);
     },
-    [setReactFlowNodes, updateField]
+    [setReactFlowNodes]
   );
 
   // Sửa handleTogglePrimaryKey trong useWebSocketHandlers.ts - fix state logic
@@ -456,7 +412,8 @@ export const useWebSocketHandlers = ({
   // Create stable handlers object
   const websocketHandlers = useRef({
     onNodePositionUpdate: handleNodePositionUpdate,
-    onFieldUpdate: handleFieldUpdate,
+    onFieldNameUpdate: handleFieldNameUpdate,
+    onFieldTypeUpdate: handleFieldTypeUpdate,
     onToggleKeyType: handleToggleKeyType,
     onAddAttribute: handleAddAttribute,
     onDeleteAttribute: handleDeleteAttribute,
@@ -471,7 +428,8 @@ export const useWebSocketHandlers = ({
   useEffect(() => {
     websocketHandlers.current = {
       onNodePositionUpdate: handleNodePositionUpdate,
-      onFieldUpdate: handleFieldUpdate,
+      onFieldNameUpdate: handleFieldNameUpdate,
+      onFieldTypeUpdate: handleFieldTypeUpdate,
       onToggleKeyType: handleToggleKeyType,
       onAddAttribute: handleAddAttribute,
       onDeleteAttribute: handleDeleteAttribute,
@@ -483,7 +441,8 @@ export const useWebSocketHandlers = ({
     };
   }, [
     handleNodePositionUpdate,
-    handleFieldUpdate,
+    handleFieldNameUpdate,
+    handleFieldTypeUpdate,
     handleToggleKeyType,
     handleAddAttribute,
     handleDeleteAttribute,

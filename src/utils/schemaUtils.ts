@@ -1,6 +1,11 @@
 // src/utils/schemaUtils.ts
 import { Node, Edge, MarkerType } from "reactflow";
-import { NodePositionUpdate, FieldUpdate } from "../types/websocket.types";
+import {
+  NodePositionUpdate,
+  FieldUpdate,
+  FieldNameUpdate,
+  FieldTypeUpdate,
+} from "../types/websocket.types";
 import {
   SchemaData,
   Model,
@@ -14,27 +19,6 @@ export const createNodePositionUpdate = (node: Node): NodePositionUpdate => ({
   positionY: node.position.y,
   diagramId: node.data.diagramId,
 });
-
-export const createFieldUpdate = (
-  nodes: Node[],
-  attributeId: string,
-  attributeName: string,
-  attributeType: string
-): FieldUpdate | null => {
-  const node = nodes.find((node) =>
-    node.data.attributes?.some((attribute: any) => attribute.id === attributeId)
-  );
-
-  if (!node) return null;
-
-  return {
-    attributeId,
-    attributeName,
-    attributeType,
-    modelName: node.id,
-    modelId: node.data.id, // Get modelId from node data
-  };
-};
 
 export const findModelByFieldId = (
   nodes: Node[],

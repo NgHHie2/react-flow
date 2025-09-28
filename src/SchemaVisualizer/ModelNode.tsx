@@ -8,11 +8,8 @@ import { ModelFooter } from "../components/ModelFooter";
 import { FieldComponent } from "../components/FieldComponent";
 
 interface ModelNodeData extends Model {
-  onFieldUpdate?: (
-    fieldId: string,
-    fieldName: string,
-    fieldType: string
-  ) => void;
+  onFieldNameUpdate?: (fieldId: string, fieldName: string) => void;
+  onFieldTypeUpdate?: (fieldId: string, fieldType: string) => void;
   onToggleKeyType?: (
     modelId: string,
     attributeId: string,
@@ -56,31 +53,31 @@ export const ModelNode: React.FC<NodeProps<ModelNodeData>> = ({ data, id }) => {
   const handleFieldNameUpdate = useCallback(
     (fieldIndex: number, newName: string) => {
       const attribute = sortedAttributes[fieldIndex];
-      if (!attribute?.id || !data.onFieldUpdate) return;
+      if (!attribute?.id || !data.onFieldNameUpdate) return;
 
       // Only call if name actually changed
       if (attribute.name !== newName) {
         console.log(`🔧 Field name update: ${attribute.name} -> ${newName}`);
-        data.onFieldUpdate(attribute.id, newName, attribute.dataType);
+        data.onFieldNameUpdate(attribute.id, newName);
       }
     },
-    [sortedAttributes, data.onFieldUpdate]
+    [sortedAttributes, data.onFieldNameUpdate]
   );
 
   const handleFieldTypeUpdate = useCallback(
     (fieldIndex: number, newType: string) => {
       const attribute = sortedAttributes[fieldIndex];
-      if (!attribute?.id || !data.onFieldUpdate) return;
+      if (!attribute?.id || !data.onFieldTypeUpdate) return;
 
       // Only call if type actually changed
       if (attribute.dataType !== newType) {
         console.log(
           `🔧 Field type update: ${attribute.dataType} -> ${newType}`
         );
-        data.onFieldUpdate(attribute.id, attribute.name, newType);
+        data.onFieldTypeUpdate(attribute.id, newType);
       }
     },
-    [sortedAttributes, data.onFieldUpdate]
+    [sortedAttributes, data.onFieldTypeUpdate]
   );
 
   // src/SchemaVisualizer/ModelNode.tsx - Fixed handleToggleKeyType

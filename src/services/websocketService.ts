@@ -16,6 +16,8 @@ import {
   UpdateModelNameUpdate,
   DeleteModelUpdate,
   ToggleKeyTypeUpdate,
+  FieldNameUpdate,
+  FieldTypeUpdate,
 } from "../types/websocket.types";
 
 // Constants
@@ -278,8 +280,24 @@ class WebSocketService {
     );
   }
 
-  sendFieldUpdate(update: FieldUpdate): void {
-    this.sendMessage(DESTINATIONS.updateAttribute, "FIELD_UPDATE", update);
+  // sendFieldUpdate(update: FieldUpdate): void {
+  //   this.sendMessage(DESTINATIONS.updateAttribute, "FIELD_UPDATE", update);
+  // }
+
+  sendFieldNameUpdate(update: FieldNameUpdate): void {
+    this.sendMessage(
+      DESTINATIONS.updateAttributeName,
+      "FIELD_NAME_UPDATE",
+      update
+    );
+  }
+
+  sendFieldTypeUpdate(update: FieldTypeUpdate): void {
+    this.sendMessage(
+      DESTINATIONS.updateAttributeType,
+      "FIELD_TYPE_UPDATE",
+      update
+    );
   }
 
   sendToggleKeyType(update: ToggleKeyTypeUpdate): void {

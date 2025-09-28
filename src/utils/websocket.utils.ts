@@ -107,8 +107,11 @@ export const routeMessage = (
       case "NODE_POSITION_UPDATE":
         handlers.onNodePositionUpdate?.(response.data);
         break;
-      case "FIELD_UPDATE":
-        handlers.onFieldUpdate?.(response.data);
+      case "FIELD_NAME_UPDATE":
+        handlers.onFieldNameUpdate?.(response.data);
+        break;
+      case "FIELD_TYPE_UPDATE":
+        handlers.onFieldTypeUpdate?.(response.data);
         break;
       case "TOGGLE_KEY_TYPE":
         handlers.onToggleKeyType?.(response.data);

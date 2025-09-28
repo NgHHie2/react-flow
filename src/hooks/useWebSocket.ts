@@ -13,11 +13,14 @@ import {
   UpdateModelNameUpdate,
   DeleteModelUpdate,
   ToggleKeyTypeUpdate,
+  FieldNameUpdate,
+  FieldTypeUpdate,
 } from "../types/websocket.types";
 
 interface UseWebSocketProps {
   onNodePositionUpdate: (data: NodePositionUpdate) => void;
-  onFieldUpdate: (data: FieldUpdate) => void;
+  onFieldNameUpdate: (data: FieldNameUpdate) => void;
+  onFieldTypeUpdate: (data: FieldTypeUpdate) => void;
   onToggleKeyType: (data: ToggleKeyTypeUpdate) => void;
   onAddAttribute: (data: AddAttributeUpdate) => void;
   onDeleteAttribute: (data: DeleteAttributeUpdate) => void;
@@ -31,7 +34,8 @@ interface UseWebSocketProps {
 
 export const useWebSocket = ({
   onNodePositionUpdate,
-  onFieldUpdate,
+  onFieldNameUpdate,
+  onFieldTypeUpdate,
   onToggleKeyType,
   onAddAttribute,
   onDeleteAttribute,
@@ -85,9 +89,13 @@ export const useWebSocket = ({
         console.log("📍 Received position update from other client:", data);
         onNodePositionUpdate(data);
       },
-      onFieldUpdate: (data) => {
+      onFieldNameUpdate: (data) => {
         console.log("✏️ Received field update from other client:", data);
-        onFieldUpdate(data);
+        onFieldNameUpdate(data);
+      },
+      onFieldTypeUpdate: (data) => {
+        console.log("✏️ Received field update from other client:", data);
+        onFieldTypeUpdate(data);
       },
       onToggleKeyType: (data) => {
         console.log("🔑 Received primary key toggle from other client:", data);
@@ -143,13 +151,23 @@ export const useWebSocket = ({
     }
   }, []);
 
-  const sendFieldUpdate = useCallback((update: FieldUpdate) => {
+  const sendFieldNameUpdate = useCallback((update: FieldNameUpdate) => {
     if (websocketService.isConnected()) {
       console.log(
         "📤 Sending field update (will be filtered for this client):",
         update
       );
-      websocketService.sendFieldUpdate(update);
+      websocketService.sendFieldNameUpdate(update);
+    }
+  }, []);
+
+  const sendFieldTypeUpdate = useCallback((update: FieldTypeUpdate) => {
+    if (websocketService.isConnected()) {
+      console.log(
+        "📤 Sending field update (will be filtered for this client):",
+        update
+      );
+      websocketService.sendFieldTypeUpdate(update);
     }
   }, []);
 
@@ -244,7 +262,8 @@ export const useWebSocket = ({
     isConnected,
     // Existing methods
     sendNodePositionUpdate,
-    sendFieldUpdate,
+    sendFieldNameUpdate,
+    sendFieldTypeUpdate,
     sendToggleKeyType,
     sendAddAttribute,
     sendDeleteAttribute,

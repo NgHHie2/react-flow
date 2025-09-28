@@ -28,7 +28,8 @@ export const MESSAGE_TYPES = {
 // WebSocket Destinations
 export const DESTINATIONS = {
   updateNodePosition: "/app/updateNodePosition",
-  updateAttribute: "/app/updateAttribute",
+  updateAttributeName: "/app/updateAttributeName",
+  updateAttributeType: "/app/updateAttributeType",
   toggleKeyType: "/app/toggleKeyType",
   addAttribute: "/app/addAttribute",
   deleteAttribute: "/app/deleteAttribute",

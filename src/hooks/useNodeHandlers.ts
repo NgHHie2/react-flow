@@ -1,11 +1,11 @@
 // src/hooks/useNodeHandlers.ts - Fixed version
 import { useCallback, useEffect, useRef } from "react";
-import { createFieldUpdate } from "../utils/schemaUtils";
 import { generateAttributeId } from "../utils/uuid.utils";
 
 interface UseNodeHandlersProps {
   setReactFlowNodes: any;
-  sendFieldUpdate: any;
+  sendFieldNameUpdate: any;
+  sendFieldTypeUpdate: any;
   sendToggleKeyType: any;
   sendAddAttribute: any;
   sendDeleteAttribute: any;
@@ -16,7 +16,8 @@ interface UseNodeHandlersProps {
 
 export const useNodeHandlers = ({
   setReactFlowNodes, // ✅ Sử dụng prop này thay vì tạo mới
-  sendFieldUpdate,
+  sendFieldNameUpdate,
+  sendFieldTypeUpdate,
   sendToggleKeyType,
   sendAddAttribute,
   sendDeleteAttribute,
@@ -32,11 +33,47 @@ export const useNodeHandlers = ({
   }, [reactFlowNodes]);
 
   // Field update handler
-  const handleFieldUpdate = useCallback(
-    (attributeId: string, attributeName: string, attributeType: string) => {
+  const handleFieldNameUpdate = useCallback(
+    (attributeId: string, attributeName: string) => {
       console.log("📤 Sending field update:", {
         attributeId,
         attributeName,
+      });
+
+      setReactFlowNodes((currentNodes: any) => {
+        return currentNodes.map((node: any) => {
+          const hasAttribute = node.data.attributes.some(
+            (attr: any) => attr.id === attributeId
+          );
+          if (!hasAttribute) return node;
+
+          const updatedAttributes = node.data.attributes.map((attr: any) => {
+            if (attr.id === attributeId) {
+              return { ...attr, name: attributeName };
+            }
+            return attr;
+          });
+
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              attributes: updatedAttributes,
+              lastFieldNameUpdate: Date.now(), // ✅ Force re-render
+            },
+          };
+        });
+      });
+      // Send WebSocket update
+      sendFieldNameUpdate({ attributeId, attributeName });
+    },
+    [setReactFlowNodes]
+  );
+
+  const handleFieldTypeUpdate = useCallback(
+    (attributeId: string, attributeType: string) => {
+      console.log("📤 Sending field update:", {
+        attributeId,
         attributeType,
       });
 
@@ -49,34 +86,25 @@ export const useNodeHandlers = ({
 
           const updatedAttributes = node.data.attributes.map((attr: any) => {
             if (attr.id === attributeId) {
-              return { ...attr, name: attributeName, dataType: attributeType };
+              return { ...attr, dataType: attributeType };
             }
             return attr;
           });
-
-          // Send WebSocket update
-          const fieldUpdate = createFieldUpdate(
-            currentNodes,
-            attributeId,
-            attributeName,
-            attributeType
-          );
-          if (fieldUpdate) {
-            sendFieldUpdate(fieldUpdate);
-          }
 
           return {
             ...node,
             data: {
               ...node.data,
               attributes: updatedAttributes,
-              lastFieldUpdate: Date.now(), // ✅ Force re-render
+              lastFieldTypeUpdate: Date.now(), // ✅ Force re-render
             },
           };
         });
       });
+      // Send WebSocket update
+      sendFieldTypeUpdate({ attributeId, attributeType });
     },
-    [setReactFlowNodes, sendFieldUpdate]
+    [setReactFlowNodes]
   );
 
   // Toggle key type handler
@@ -329,7 +357,8 @@ export const useNodeHandlers = ({
   );
 
   return {
-    handleFieldUpdate,
+    handleFieldNameUpdate,
+    handleFieldTypeUpdate,
     handleToggleKeyType,
     handleAddAttribute,
     handleDeleteAttribute,

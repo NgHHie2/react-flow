@@ -86,41 +86,76 @@ export const useSchemaData = () => {
   );
 
   // FIX 2: Improved field update with better state management
-  const updateField = useCallback(
-    async (
-      modelName: string,
-      attributeId: string,
-      attributeName: string,
-      attributeType: string
-    ) => {
+  const updateFieldName = useCallback(
+    async (modelId: string, attributeId: string, attributeName: string) => {
       console.log(
-        `🔧 Updating field ${attributeId} in ${modelName}: ${attributeName}:${attributeType}`
+        `🔧 Updating field name ${attributeId} in ${modelId}: ${attributeName}`
       );
 
       // Update local state immediately with minimal re-render
-      setNodes((prevNodes) =>
-        prevNodes.map((node) =>
-          node.id === modelName
-            ? {
-                ...node,
-                data: {
-                  ...node.data,
-                  attributes: node.data.attributes.map((attr: any) =>
-                    attr.id === attributeId
-                      ? {
-                          ...attr,
-                          name: attributeName,
-                          dataType: attributeType,
-                        }
-                      : attr
-                  ),
-                  // Only update if there's actually a change
-                  lastFieldUpdate: Date.now(),
-                },
-              }
-            : node
-        )
+      setReactFlowNodes((currentNodes: any) => {
+        console.log(currentNodes);
+        return currentNodes.map((node: any) => {
+          console.log("tuine: ", node);
+          const hasAttribute = node.data.attributes.some(
+            (attr: any) => attr.id === attributeId
+          );
+          if (!hasAttribute) return node;
+
+          const updatedAttributes = node.data.attributes.map((attr: any) => {
+            if (attr.id === attributeId) {
+              console.log("tui nè");
+              return { ...attr, name: attributeName };
+            }
+            return attr;
+          });
+
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              attributes: updatedAttributes,
+              lastFieldNameUpdate: Date.now(), // ✅ Force re-render
+            },
+          };
+        });
+      });
+    },
+    []
+  );
+  const updateFieldType = useCallback(
+    async (modelId: string, attributeId: string, attributeType: string) => {
+      console.log(
+        `🔧 Updating field type ${attributeId} in ${modelId}: ${attributeType}`
       );
+
+      // Update local state immediately with minimal re-render
+      setReactFlowNodes((currentNodes: any) => {
+        return currentNodes.map((node: any) => {
+          console.log("tuine: ", node);
+          const hasAttribute = node.data.attributes.some(
+            (attr: any) => attr.id === attributeId
+          );
+          if (!hasAttribute) return node;
+
+          const updatedAttributes = node.data.attributes.map((attr: any) => {
+            if (attr.id === attributeId) {
+              console.log("tui nè");
+              return { ...attr, dataType: attributeType };
+            }
+            return attr;
+          });
+
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              attributes: updatedAttributes,
+              lastFieldTypeUpdate: Date.now(), // ✅ Force re-render
+            },
+          };
+        });
+      });
     },
     []
   );
@@ -344,7 +379,8 @@ export const useSchemaData = () => {
     fetchSchemaData,
     initializeData,
     updateNodePosition,
-    updateField,
+    updateFieldName,
+    updateFieldType,
     addAttribute,
     deleteAttribute,
     addModel,
