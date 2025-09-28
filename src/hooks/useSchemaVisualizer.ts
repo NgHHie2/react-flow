@@ -29,8 +29,6 @@ export const useSchemaVisualizer = () => {
     initializeData,
     updateNodePosition,
     updateField,
-    togglePrimaryKey,
-    toggleForeignKey,
     addAttribute,
     deleteAttribute,
     addModel,
@@ -55,8 +53,6 @@ export const useSchemaVisualizer = () => {
   const websocketHandlers = useWebSocketHandlers({
     updateNodePosition,
     updateField,
-    togglePrimaryKey,
-    toggleForeignKey,
     addAttribute,
     deleteAttribute,
     addModel,
@@ -71,8 +67,7 @@ export const useSchemaVisualizer = () => {
     isConnected,
     sendNodePositionUpdate,
     sendFieldUpdate,
-    sendTogglePrimaryKey,
-    sendToggleForeignKey,
+    sendToggleKeyType,
     sendAddAttribute,
     sendDeleteAttribute,
     sendForeignKeyConnect,
@@ -93,8 +88,7 @@ export const useSchemaVisualizer = () => {
   } = useNodeHandlers({
     setReactFlowNodes,
     sendFieldUpdate,
-    sendTogglePrimaryKey,
-    sendToggleForeignKey,
+    sendToggleKeyType,
     sendAddAttribute,
     sendDeleteAttribute,
     sendForeignKeyConnect,
@@ -129,8 +123,6 @@ export const useSchemaVisualizer = () => {
       const existingNodeWithCallbacks = currentNodes[0]; // Lấy callback từ node đầu tiên
       const callbacks = existingNodeWithCallbacks
         ? {
-            getAllModels: existingNodeWithCallbacks.data.getAllModels,
-            allModels: currentNodes.map((n: any) => n.data),
             onFieldUpdate: existingNodeWithCallbacks.data.onFieldUpdate,
             onToggleKeyType: existingNodeWithCallbacks.data.onToggleKeyType,
             onAddAttribute: existingNodeWithCallbacks.data.onAddAttribute,
@@ -172,38 +164,7 @@ export const useSchemaVisualizer = () => {
 
       console.log("newnode: ", newNode);
 
-      const updatedNodes = [
-        ...currentNodes.map((node: any) => ({
-          ...node,
-          data: {
-            ...node.data,
-            allModels: [
-              ...(node.data.allModels ?? []),
-              {
-                id: newModelId,
-                name: "Model",
-                modelType: "TABLE",
-                attributes: [], // hoặc các field mặc định
-              },
-            ],
-          },
-        })),
-        {
-          ...newNode,
-          data: {
-            ...newNode.data,
-            allModels: [
-              ...currentNodes.map((n: any) => n.data),
-              {
-                id: newModelId,
-                name: "Model",
-                modelType: "TABLE",
-                attributes: [],
-              },
-            ],
-          },
-        },
-      ];
+      const updatedNodes = [...currentNodes, newNode];
 
       return updatedNodes;
     });
@@ -247,9 +208,6 @@ export const useSchemaVisualizer = () => {
                 ...currentNode.data,
                 name: trimmedNewName,
                 lastNameUpdate: Date.now(),
-                allModels: currentNode.data.allModels?.map((m: any) =>
-                  m.id === modelId ? { ...m, name: trimmedNewName } : m
-                ),
               },
             };
           }
@@ -258,9 +216,6 @@ export const useSchemaVisualizer = () => {
             data: {
               ...currentNode.data,
               lastUpdate: Date.now(), // Force dependency change
-              allModels: currentNode.data.allModels?.map((m: any) =>
-                m.id === modelId ? { ...m, name: trimmedNewName } : m
-              ),
             },
           };
         });
@@ -309,32 +264,8 @@ export const useSchemaVisualizer = () => {
 
       console.log(`🗑️ Deleting model: ${modelId}`);
       setReactFlowNodes((prevNodes: any[]) => {
-        console.log("🔍 Trước khi xoá:", prevNodes);
+        const afterFilter = prevNodes.filter((node) => node.id !== modelId);
 
-        const afterFilter = prevNodes
-          // 1️⃣ Loại bỏ node có id = modelId
-          .filter((node) => node.id !== modelId)
-          // 2️⃣ Đồng thời xoá model khỏi allModels của các node còn lại
-          .map((node) => {
-            const newAllModels = node.data.allModels?.filter(
-              (m: any) => m.id !== modelId
-            );
-            console.log("📌 Node sau khi filter allModels:", {
-              nodeId: node.id,
-              before: node.data.allModels,
-              after: newAllModels,
-            });
-
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                allModels: newAllModels,
-              },
-            };
-          });
-
-        console.log("✅ Sau khi xoá:", afterFilter);
         return afterFilter;
       });
 
@@ -452,8 +383,6 @@ export const useSchemaVisualizer = () => {
         data: {
           ...node.data,
           ...stableCallbacks,
-          // ✅ IMPORTANT: Don't override allModels, preserve it if exists
-          allModels: node.data.allModels || nodes.map((n) => n.data),
         },
       }));
 

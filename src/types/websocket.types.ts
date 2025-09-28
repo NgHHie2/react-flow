@@ -21,14 +21,11 @@ export interface FieldUpdate extends BaseUpdate {
   modelId: string;
 }
 
-export interface ToggleKeyUpdate extends BaseUpdate {
+export interface ToggleKeyTypeUpdate extends BaseUpdate {
   modelId: string;
   attributeId: string;
+  keyType: "NORMAL" | "PRIMARY" | "FOREIGN";
 }
-
-export type TogglePrimaryKeyUpdate = ToggleKeyUpdate;
-export type ToggleForeignKeyUpdate = ToggleKeyUpdate;
-
 export interface AddAttributeUpdate extends BaseUpdate {
   modelId: string;
   attributeId: string;
@@ -43,8 +40,7 @@ export interface DeleteAttributeUpdate extends BaseUpdate {
 
 export interface ForeignKeyConnectionUpdate extends BaseUpdate {
   attributeId: string;
-  targetModelName: string;
-  targetAttributeName: string;
+  targetModelId: string;
   targetAttributeId: string;
   foreignKeyName: string;
 }
@@ -82,8 +78,7 @@ export interface WebSocketResponse<T> {
 export interface MessageHandler {
   onNodePositionUpdate?: (data: NodePositionUpdate) => void;
   onFieldUpdate?: (data: FieldUpdate) => void;
-  onTogglePrimaryKey?: (data: TogglePrimaryKeyUpdate) => void;
-  onToggleForeignKey?: (data: ToggleForeignKeyUpdate) => void;
+  onToggleKeyType?: (data: ToggleKeyTypeUpdate) => void;
   onAddAttribute?: (data: AddAttributeUpdate) => void;
   onDeleteAttribute?: (data: DeleteAttributeUpdate) => void;
   onForeignKeyConnect?: (data: ForeignKeyConnectionUpdate) => void;

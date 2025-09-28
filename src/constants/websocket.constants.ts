@@ -29,8 +29,7 @@ export const MESSAGE_TYPES = {
 export const DESTINATIONS = {
   updateNodePosition: "/app/updateNodePosition",
   updateAttribute: "/app/updateAttribute",
-  togglePrimaryKey: "/app/togglePrimaryKey",
-  toggleForeignKey: "/app/toggleForeignKey",
+  toggleKeyType: "/app/toggleKeyType",
   addAttribute: "/app/addAttribute",
   deleteAttribute: "/app/deleteAttribute",
   connectForeignKey: "/app/connectForeignKey",

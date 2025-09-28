@@ -93,11 +93,7 @@ export const routeMessage = (
 ): void => {
   if (!response || !response.type) return;
 
-  // CHỈ FILTER CHO POSITION UPDATES để tránh echo khi drag
-  // Các update khác như ADD_ATTRIBUTE, ADD_MODEL thì tất cả clients đều nhận
-  const shouldFilterForCurrentClient =
-    // response.type === "NODE_POSITION_UPDATE" &&
-    response.sessionId === currentSessionId;
+  const shouldFilterForCurrentClient = response.sessionId === currentSessionId;
   console.log("wtf: {} {}", response.sessionId, currentSessionId);
   if (shouldFilterForCurrentClient) {
     console.log(`⏸️ Filtering ${response.type} for current client`);
@@ -114,11 +110,8 @@ export const routeMessage = (
       case "FIELD_UPDATE":
         handlers.onFieldUpdate?.(response.data);
         break;
-      case "TOGGLE_PRIMARY_KEY":
-        handlers.onTogglePrimaryKey?.(response.data);
-        break;
-      case "TOGGLE_FOREIGN_KEY":
-        handlers.onToggleForeignKey?.(response.data);
+      case "TOGGLE_KEY_TYPE":
+        handlers.onToggleKeyType?.(response.data);
         break;
       case "ADD_ATTRIBUTE":
         handlers.onAddAttribute?.(response.data);

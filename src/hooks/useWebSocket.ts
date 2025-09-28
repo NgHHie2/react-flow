@@ -5,8 +5,6 @@ import { websocketService } from "../services/websocketService";
 import {
   NodePositionUpdate,
   FieldUpdate,
-  TogglePrimaryKeyUpdate,
-  ToggleForeignKeyUpdate,
   AddAttributeUpdate,
   DeleteAttributeUpdate,
   ForeignKeyConnectionUpdate,
@@ -14,13 +12,13 @@ import {
   AddModelUpdate,
   UpdateModelNameUpdate,
   DeleteModelUpdate,
+  ToggleKeyTypeUpdate,
 } from "../types/websocket.types";
 
 interface UseWebSocketProps {
   onNodePositionUpdate: (data: NodePositionUpdate) => void;
   onFieldUpdate: (data: FieldUpdate) => void;
-  onTogglePrimaryKey: (data: TogglePrimaryKeyUpdate) => void;
-  onToggleForeignKey: (data: ToggleForeignKeyUpdate) => void;
+  onToggleKeyType: (data: ToggleKeyTypeUpdate) => void;
   onAddAttribute: (data: AddAttributeUpdate) => void;
   onDeleteAttribute: (data: DeleteAttributeUpdate) => void;
   onForeignKeyConnect: (data: ForeignKeyConnectionUpdate) => void;
@@ -34,8 +32,7 @@ interface UseWebSocketProps {
 export const useWebSocket = ({
   onNodePositionUpdate,
   onFieldUpdate,
-  onTogglePrimaryKey,
-  onToggleForeignKey,
+  onToggleKeyType,
   onAddAttribute,
   onDeleteAttribute,
   onForeignKeyConnect,
@@ -92,13 +89,9 @@ export const useWebSocket = ({
         console.log("✏️ Received field update from other client:", data);
         onFieldUpdate(data);
       },
-      onTogglePrimaryKey: (data) => {
+      onToggleKeyType: (data) => {
         console.log("🔑 Received primary key toggle from other client:", data);
-        onTogglePrimaryKey(data);
-      },
-      onToggleForeignKey: (data) => {
-        console.log("🔗 Received foreign key toggle from other client:", data);
-        onToggleForeignKey(data);
+        onToggleKeyType(data);
       },
       onAddAttribute: (data) => {
         console.log("➕ Received add attribute from other client:", data);
@@ -160,23 +153,13 @@ export const useWebSocket = ({
     }
   }, []);
 
-  const sendTogglePrimaryKey = useCallback((update: TogglePrimaryKeyUpdate) => {
+  const sendToggleKeyType = useCallback((update: ToggleKeyTypeUpdate) => {
     if (websocketService.isConnected()) {
       console.log(
         "📤 Sending toggle primary key (will be filtered for this client):",
         update
       );
-      websocketService.sendTogglePrimaryKey(update);
-    }
-  }, []);
-
-  const sendToggleForeignKey = useCallback((update: ToggleForeignKeyUpdate) => {
-    if (websocketService.isConnected()) {
-      console.log(
-        "📤 Sending toggle foreign key (will be filtered for this client):",
-        update
-      );
-      websocketService.sendToggleForeignKey(update);
+      websocketService.sendToggleKeyType(update);
     }
   }, []);
 
@@ -262,8 +245,7 @@ export const useWebSocket = ({
     // Existing methods
     sendNodePositionUpdate,
     sendFieldUpdate,
-    sendTogglePrimaryKey,
-    sendToggleForeignKey,
+    sendToggleKeyType,
     sendAddAttribute,
     sendDeleteAttribute,
     sendForeignKeyConnect,

@@ -58,7 +58,6 @@ export const convertToReactFlowData = (
     onForeignKeyDisconnect?: any;
     onModelNameUpdate?: any;
     onDeleteModel?: any;
-    getAllModels?: () => Model[];
   }
 ) => {
   // Create nodes from models with ALL callbacks
@@ -72,7 +71,6 @@ export const convertToReactFlowData = (
       ...callbacks,
       // ✅ QUAN TRỌNG: Pass reference đến tất cả models để ForeignKeyTargetSelector có thể access
       reactFlowNodes: [], // Sẽ được update sau
-      getAllModels: callbacks?.getAllModels || (() => data.models),
     },
     type: "model",
   }));
@@ -138,15 +136,6 @@ export const getConnectionInfo = (attribute: Attribute) => {
     connectionType: attribute.connection.connectionType,
     color: attribute.connection.strokeColor,
   };
-};
-
-// Helper function to determine if a model is a child (has incoming foreign keys)
-export const isChildModel = (model: Model, allModels: Model[]): boolean => {
-  return allModels.some((otherModel) =>
-    otherModel.attributes.some(
-      (attr) => attr.connection?.targetModelId === model.name
-    )
-  );
 };
 
 // Helper function to get all primary key fields

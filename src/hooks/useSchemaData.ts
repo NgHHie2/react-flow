@@ -125,77 +125,6 @@ export const useSchemaData = () => {
     []
   );
 
-  // FIX 3: Optimized toggle functions to prevent full re-render
-  const togglePrimaryKey = useCallback(
-    async (modelName: string, attributeId: number) => {
-      console.log(`🔑 Toggling primary key for ${attributeId} in ${modelName}`);
-
-      setNodes((prevNodes) =>
-        prevNodes.map((node) =>
-          node.id === modelName
-            ? {
-                ...node,
-                data: {
-                  ...node.data,
-                  attributes: node.data.attributes.map((attr: any) =>
-                    attr.id === attributeId
-                      ? {
-                          ...attr,
-                          isPrimaryKey: !attr.isPrimaryKey,
-                          // If setting as PK, remove FK status and connection
-                          isForeignKey: !attr.isPrimaryKey
-                            ? false
-                            : attr.isForeignKey,
-                          connection: !attr.isPrimaryKey
-                            ? undefined
-                            : attr.connection,
-                        }
-                      : attr
-                  ),
-                  // Use specific update flag instead of general timestamp
-                  lastKeyUpdate: Date.now(),
-                },
-              }
-            : node
-        )
-      );
-    },
-    []
-  );
-
-  const toggleForeignKey = useCallback(
-    async (modelName: string, attributeId: string) => {
-      console.log(`🔗 Toggling foreign key for ${attributeId} in ${modelName}`);
-
-      setNodes((prevNodes) =>
-        prevNodes.map((node) =>
-          node.id === modelName
-            ? {
-                ...node,
-                data: {
-                  ...node.data,
-                  attributes: node.data.attributes.map((attr: any) =>
-                    attr.id === attributeId
-                      ? {
-                          ...attr,
-                          isForeignKey: !attr.isForeignKey,
-                          // If setting as FK, remove PK status
-                          isPrimaryKey: !attr.isForeignKey
-                            ? false
-                            : attr.isPrimaryKey,
-                        }
-                      : attr
-                  ),
-                  lastKeyUpdate: Date.now(),
-                },
-              }
-            : node
-        )
-      );
-    },
-    []
-  );
-
   const addAttribute = useCallback(
     async (modelId: string, attributeName: string, dataType: string) => {
       // Generate UUID for new attribute
@@ -383,15 +312,7 @@ export const useSchemaData = () => {
       console.log("🗑️ deleteModel called:", modelName);
 
       setNodes((nds) => {
-        console.log(
-          "📊 Data store nodes before delete:",
-          nds.map((n) => n.id)
-        );
         const filtered = nds.filter((node) => node.id !== modelName);
-        console.log(
-          "📊 Data store nodes after delete:",
-          filtered.map((n) => n.id)
-        );
         return filtered;
       });
 
@@ -424,8 +345,6 @@ export const useSchemaData = () => {
     initializeData,
     updateNodePosition,
     updateField,
-    togglePrimaryKey,
-    toggleForeignKey,
     addAttribute,
     deleteAttribute,
     addModel,

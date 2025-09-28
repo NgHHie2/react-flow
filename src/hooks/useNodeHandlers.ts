@@ -6,8 +6,7 @@ import { generateAttributeId } from "../utils/uuid.utils";
 interface UseNodeHandlersProps {
   setReactFlowNodes: any;
   sendFieldUpdate: any;
-  sendTogglePrimaryKey: any;
-  sendToggleForeignKey: any;
+  sendToggleKeyType: any;
   sendAddAttribute: any;
   sendDeleteAttribute: any;
   sendForeignKeyConnect: any;
@@ -18,8 +17,7 @@ interface UseNodeHandlersProps {
 export const useNodeHandlers = ({
   setReactFlowNodes, // ✅ Sử dụng prop này thay vì tạo mới
   sendFieldUpdate,
-  sendTogglePrimaryKey,
-  sendToggleForeignKey,
+  sendToggleKeyType,
   sendAddAttribute,
   sendDeleteAttribute,
   sendForeignKeyConnect,
@@ -98,49 +96,36 @@ export const useNodeHandlers = ({
         const updatedNodes = currentNodes.map((node: any) => {
           if (node.id !== modelId) return node;
 
-          const currentAttr = node.data.attributes.find(
-            (attr: any) => attr.id === attributeId
-          );
-
-          if (!currentAttr) {
-            console.warn("❌ Attribute not found:", attributeId);
-            return node;
-          }
-
           const updatedAttributes = node.data.attributes.map((attr: any) => {
             if (attr.id !== attributeId) return attr;
 
-            if (keyType === "PRIMARY") {
-              return {
-                ...attr,
-                isPrimaryKey: !attr.isPrimaryKey,
-                isForeignKey: false,
-                connection: undefined,
-              };
-            } else if (keyType === "FOREIGN") {
-              return {
-                ...attr,
-                isPrimaryKey: false,
-                isForeignKey: !attr.isForeignKey,
-              };
-            } else {
-              // NORMAL
-              return {
-                ...attr,
-                isPrimaryKey: false,
-                isForeignKey: false,
-                connection: undefined,
-              };
+            // ✅ Handle all 3 cases in one place
+            switch (keyType) {
+              case "PRIMARY":
+                return {
+                  ...attr,
+                  isPrimaryKey: true,
+                  isForeignKey: false,
+                  connection: undefined,
+                };
+              case "FOREIGN":
+                return {
+                  ...attr,
+                  isPrimaryKey: false,
+                  isForeignKey: true,
+                  // Keep existing connection if any
+                };
+              case "NORMAL":
+                return {
+                  ...attr,
+                  isPrimaryKey: false,
+                  isForeignKey: false,
+                  connection: undefined,
+                };
+              default:
+                return attr;
             }
           });
-
-          // Send WebSocket based on target keyType
-          console.log("keyTYpe: ", keyType);
-          if (keyType === "PRIMARY") {
-            sendTogglePrimaryKey({ modelId, attributeId });
-          } else if (keyType === "FOREIGN") {
-            sendToggleForeignKey({ modelId, attributeId });
-          }
 
           return {
             ...node,
@@ -154,8 +139,11 @@ export const useNodeHandlers = ({
 
         return updatedNodes;
       });
+
+      // ✅ Single WebSocket call
+      sendToggleKeyType({ modelId, attributeId, keyType });
     },
-    [setReactFlowNodes, sendTogglePrimaryKey, sendToggleForeignKey]
+    [setReactFlowNodes, sendToggleKeyType]
   );
 
   // ✅ FIX: Add attribute handler với proper state update
@@ -191,12 +179,6 @@ export const useNodeHandlers = ({
               // ✅ Force component re-render with timestamp
               lastUpdate: Date.now(),
               lastFieldUpdate: Date.now(),
-              // ✅ Update allModels để các component khác cũng biết về thay đổi
-              allModels: currentNodes.map((n: any) => ({
-                ...n.data,
-                attributes:
-                  n.id === modelId ? updatedAttributes : n.data.attributes,
-              })),
             },
           };
         });
@@ -237,11 +219,6 @@ export const useNodeHandlers = ({
               ...node.data,
               attributes: filteredAttributes,
               lastUpdate: Date.now(),
-              allModels: currentNodes.map((n: any) => ({
-                ...n.data,
-                attributes:
-                  n.id === modelId ? filteredAttributes : n.data.attributes,
-              })),
             },
           };
         });
@@ -260,18 +237,16 @@ export const useNodeHandlers = ({
   const handleForeignKeyTargetSelect = useCallback(
     (
       attributeId: string, // ✅ Đổi từ number sang string
-      targetModelName: string,
-      targetAttributeName: string,
+      targetModelId: string,
       targetAttributeId: string // ✅ Đổi từ number sang string
     ) => {
       console.log("📤 Sending FK connect:", {
         attributeId,
-        targetModelName,
-        targetAttributeName,
+        targetModelId,
         targetAttributeId,
       });
 
-      const foreignKeyName = `fk_${targetModelName.toLowerCase()}_${targetAttributeName}`;
+      const foreignKeyName = null;
 
       setReactFlowNodes((currentNodes: any) => {
         const updatedNodes = currentNodes.map((node: any) => {
@@ -281,10 +256,8 @@ export const useNodeHandlers = ({
                 ...attr,
                 connection: {
                   id: attributeId,
-                  targetModelId: targetModelName,
+                  targetModelId: targetModelId,
                   targetAttributeId: targetAttributeId,
-                  targetModelName,
-                  targetAttributeName,
                   foreignKeyName,
                   strokeColor: "#4A90E2",
                   strokeWidth: 2,
@@ -309,8 +282,7 @@ export const useNodeHandlers = ({
 
         sendForeignKeyConnect({
           attributeId,
-          targetModelName,
-          targetAttributeName,
+          targetModelId,
           targetAttributeId,
           foreignKeyName,
         });

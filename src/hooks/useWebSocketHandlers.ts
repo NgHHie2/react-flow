@@ -4,8 +4,6 @@ import { useRef, useEffect, useCallback } from "react";
 interface UseWebSocketHandlersProps {
   updateNodePosition: any;
   updateField: any;
-  togglePrimaryKey: any;
-  toggleForeignKey: any;
   addAttribute: any;
   deleteAttribute: any;
   setReactFlowNodes: any;
@@ -18,8 +16,6 @@ interface UseWebSocketHandlersProps {
 export const useWebSocketHandlers = ({
   updateNodePosition,
   updateField,
-  togglePrimaryKey,
-  toggleForeignKey,
   addAttribute,
   deleteAttribute,
   addModel,
@@ -117,14 +113,7 @@ export const useWebSocketHandlers = ({
           };
         });
 
-        // ⭐ Update allModels cho TẤT CẢ nodes
-        return updatedNodes.map((node: any) => ({
-          ...node,
-          data: {
-            ...node.data,
-            allModels: updatedNodes.map((n: any) => n.data),
-          },
-        }));
+        return updatedNodes;
       });
 
       // ⭐ Cũng update data store
@@ -139,24 +128,42 @@ export const useWebSocketHandlers = ({
   );
 
   // Sửa handleTogglePrimaryKey trong useWebSocketHandlers.ts - fix state logic
-  const handleTogglePrimaryKey = useCallback(
+  const handleToggleKeyType = useCallback(
     (data: any) => {
+      console.log("🔑 Received key type toggle:", data);
+
       setReactFlowNodes((currentNodes: any) => {
         const updatedNodes = currentNodes.map((node: any) => {
           if (node.id !== data.modelId) return node;
 
           const updatedAttributes = node.data.attributes.map((attr: any) => {
-            if (attr.id === data.attributeId) {
-              console.log(attr);
+            if (attr.id !== data.attributeId) return attr;
 
-              return {
-                ...attr,
-                isPrimaryKey: !attr.isPrimaryKey,
-                isForeignKey: false,
-                connection: undefined,
-              };
+            // ✅ Apply the exact keyType from server
+            switch (data.keyType) {
+              case "PRIMARY":
+                return {
+                  ...attr,
+                  isPrimaryKey: true,
+                  isForeignKey: false,
+                  connection: undefined,
+                };
+              case "FOREIGN":
+                return {
+                  ...attr,
+                  isPrimaryKey: false,
+                  isForeignKey: true,
+                };
+              case "NORMAL":
+                return {
+                  ...attr,
+                  isPrimaryKey: false,
+                  isForeignKey: false,
+                  connection: undefined,
+                };
+              default:
+                return attr;
             }
-            return attr;
           });
 
           return {
@@ -169,66 +176,12 @@ export const useWebSocketHandlers = ({
           };
         });
 
-        // Update allModels cho TẤT CẢ nodes
-        return updatedNodes.map((node: any) => ({
-          ...node,
-          data: {
-            ...node.data,
-          },
-        }));
+        return updatedNodes;
       });
-
-      // ⭐ KHÔNG gọi togglePrimaryKey ở đây vì sẽ gây double toggle
-      // togglePrimaryKey(data.modelName, data.attributeId);
     },
     [setReactFlowNodes]
   );
 
-  const handleToggleForeignKey = useCallback(
-    (data: any) => {
-      setReactFlowNodes((currentNodes: any) => {
-        const updatedNodes = currentNodes.map((node: any) => {
-          if (node.id !== data.modelId) return node;
-
-          const updatedAttributes = node.data.attributes.map((attr: any) => {
-            if (attr.id === data.attributeId) {
-              console.log(attr);
-
-              return {
-                ...attr,
-                isForeignKey: !attr.isForeignKey, // Toggle FK
-                isPrimaryKey: false,
-              };
-            }
-            return attr;
-          });
-
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              attributes: updatedAttributes,
-              lastKeyUpdate: Date.now(),
-            },
-          };
-        });
-
-        // Update allModels cho TẤT CẢ nodes
-        return updatedNodes.map((node: any) => ({
-          ...node,
-          data: {
-            ...node.data,
-          },
-        }));
-      });
-
-      // ⭐ KHÔNG gọi toggleForeignKey ở đây vì sẽ gây double toggle
-      // toggleForeignKey(data.modelName, data.attributeId);
-    },
-    [setReactFlowNodes]
-  );
-
-  // Sửa handleAddAttribute trong useWebSocketHandlers.ts - đảm bảo allModels được update
   const handleAddAttribute = useCallback((data: any) => {
     console.log("➕ Received add attribute response from backend:", data);
 
@@ -256,25 +209,13 @@ export const useWebSocketHandlers = ({
             data: {
               ...node.data,
               attributes: updatedAttributes,
-              // ⭐ QUAN TRỌNG: Update allModels để tất cả nodes biết về attribute mới
-              allModels: currentNodes.map((n: any) => ({
-                ...n.data,
-                attributes:
-                  n.id === data.modelId ? updatedAttributes : n.data.attributes,
-              })),
+
               lastAttributeUpdate: Date.now(), // Force re-render
             },
           };
         });
 
-        // ⭐ Update allModels cho TẤT CẢ nodes, không chỉ node hiện tại
-        return updatedNodes.map((node: any) => ({
-          ...node,
-          data: {
-            ...node.data,
-            allModels: updatedNodes.map((n: any) => n.data),
-          },
-        }));
+        return updatedNodes;
       });
     }
   }, []);
@@ -299,27 +240,12 @@ export const useWebSocketHandlers = ({
               data: {
                 ...node.data,
                 attributes: updatedAttributes,
-                // ⭐ QUAN TRỌNG: Update allModels để tất cả nodes biết về attribute mới
-                allModels: currentNodes.map((n: any) => ({
-                  ...n.data,
-                  attributes:
-                    n.id === data.modelId
-                      ? updatedAttributes
-                      : n.data.attributes,
-                })),
                 lastAttributeUpdate: Date.now(), // Force re-render
               },
             };
           });
 
-          // ⭐ Update allModels cho TẤT CẢ nodes, không chỉ node hiện tại
-          return updatedNodes.map((node: any) => ({
-            ...node,
-            data: {
-              ...node.data,
-              allModels: updatedNodes.map((n: any) => n.data),
-            },
-          }));
+          return updatedNodes;
         });
       }
     },
@@ -339,8 +265,6 @@ export const useWebSocketHandlers = ({
           const existingNodeWithCallbacks = currentNodes[0]; // Lấy callback từ node đầu tiên
           const callbacks = existingNodeWithCallbacks
             ? {
-                getAllModels: existingNodeWithCallbacks.data.getAllModels,
-                allModels: currentNodes.map((n: any) => n.data),
                 onFieldUpdate: existingNodeWithCallbacks.data.onFieldUpdate,
                 onToggleKeyType: existingNodeWithCallbacks.data.onToggleKeyType,
                 onAddAttribute: existingNodeWithCallbacks.data.onAddAttribute,
@@ -408,9 +332,6 @@ export const useWebSocketHandlers = ({
                 ...node.data,
                 name: data.newModelName, // Đổi tên trong data
                 lastNameUpdate: Date.now(), // Force re-render
-                allModels: node.data.allModels?.map((m: any) =>
-                  m.id === data.modelId ? { ...m, name: data.newModelName } : m
-                ),
               },
             };
           }
@@ -420,9 +341,6 @@ export const useWebSocketHandlers = ({
             data: {
               ...node.data,
               lastUpdate: Date.now(), // Force dependency change
-              allModels: node.data.allModels?.map((m: any) =>
-                m.id === data.modelId ? { ...m, name: data.newModelName } : m
-              ),
             },
           };
         });
@@ -440,26 +358,12 @@ export const useWebSocketHandlers = ({
     (data: any) => {
       console.log("🗑️ Received delete model from backend:", data);
 
-      setReactFlowNodes((prevNodes: any[]) => {
-        return (
-          prevNodes
-            // 1️⃣ Loại bỏ node có id = modelId
-            .filter((node) => node.id !== data.modelId)
-            // 2️⃣ Đồng thời xóa model khỏi allModels của các node còn lại
-            .map((node) => ({
-              ...node,
-              data: {
-                ...node.data,
-                allModels: node.data.allModels?.filter(
-                  (m: any) => m.id !== data.modelId
-                ),
-              },
-            }))
-        );
-      });
+      // setReactFlowNodes((prevNodes: any[]) =>
+      //   prevNodes.filter((node) => node.id !== data.modelId)
+      // );
 
       // ⭐ QUAN TRỌNG: Cũng cần update data store để đồng bộ
-      deleteModel(data.modelName);
+      deleteModel(data.modelId);
     },
     [setReactFlowNodes, deleteModel]
   );
@@ -484,8 +388,8 @@ export const useWebSocketHandlers = ({
                 ...attr,
                 connection: {
                   id: data.attributeId,
-                  targetModelName: data.targetModelName,
-                  targetAttributeName: data.targetAttributeName,
+                  targetModelId: data.targetModelId,
+                  targetAttributeId: data.targetAttributeId,
                   foreignKeyName: data.foreignKeyName,
                   strokeColor: "#4A90E2",
                   strokeWidth: 2,
@@ -553,8 +457,7 @@ export const useWebSocketHandlers = ({
   const websocketHandlers = useRef({
     onNodePositionUpdate: handleNodePositionUpdate,
     onFieldUpdate: handleFieldUpdate,
-    onTogglePrimaryKey: handleTogglePrimaryKey,
-    onToggleForeignKey: handleToggleForeignKey,
+    onToggleKeyType: handleToggleKeyType,
     onAddAttribute: handleAddAttribute,
     onDeleteAttribute: handleDeleteAttribute,
     onForeignKeyConnect: handleForeignKeyConnect,
@@ -569,8 +472,7 @@ export const useWebSocketHandlers = ({
     websocketHandlers.current = {
       onNodePositionUpdate: handleNodePositionUpdate,
       onFieldUpdate: handleFieldUpdate,
-      onTogglePrimaryKey: handleTogglePrimaryKey,
-      onToggleForeignKey: handleToggleForeignKey,
+      onToggleKeyType: handleToggleKeyType,
       onAddAttribute: handleAddAttribute,
       onDeleteAttribute: handleDeleteAttribute,
       onForeignKeyConnect: handleForeignKeyConnect,
@@ -582,8 +484,7 @@ export const useWebSocketHandlers = ({
   }, [
     handleNodePositionUpdate,
     handleFieldUpdate,
-    handleTogglePrimaryKey,
-    handleToggleForeignKey,
+    handleToggleKeyType,
     handleAddAttribute,
     handleDeleteAttribute,
     handleForeignKeyConnect,

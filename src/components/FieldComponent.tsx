@@ -1,4 +1,4 @@
-// src/components/FieldComponent.tsx - Fresh version with allModels deep copy
+// src/components/FieldComponent.tsx
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { Box, Flex, IconButton, Tooltip, Button } from "@chakra-ui/react";
 import { Handle, Position, Node as ReactFlowNode } from "reactflow";

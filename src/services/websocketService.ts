@@ -8,8 +8,6 @@ import {
   ConnectionState,
   NodePositionUpdate,
   FieldUpdate,
-  TogglePrimaryKeyUpdate,
-  ToggleForeignKeyUpdate,
   AddAttributeUpdate,
   DeleteAttributeUpdate,
   ForeignKeyConnectionUpdate,
@@ -17,6 +15,7 @@ import {
   AddModelUpdate,
   UpdateModelNameUpdate,
   DeleteModelUpdate,
+  ToggleKeyTypeUpdate,
 } from "../types/websocket.types";
 
 // Constants
@@ -283,20 +282,8 @@ class WebSocketService {
     this.sendMessage(DESTINATIONS.updateAttribute, "FIELD_UPDATE", update);
   }
 
-  sendTogglePrimaryKey(update: TogglePrimaryKeyUpdate): void {
-    this.sendMessage(
-      DESTINATIONS.togglePrimaryKey,
-      "TOGGLE_PRIMARY_KEY",
-      update
-    );
-  }
-
-  sendToggleForeignKey(update: ToggleForeignKeyUpdate): void {
-    this.sendMessage(
-      DESTINATIONS.toggleForeignKey,
-      "TOGGLE_FOREIGN_KEY",
-      update
-    );
+  sendToggleKeyType(update: ToggleKeyTypeUpdate): void {
+    this.sendMessage(DESTINATIONS.toggleKeyType, "TOGGLE_KEY_TYPE", update);
   }
 
   sendAddAttribute(update: AddAttributeUpdate): void {

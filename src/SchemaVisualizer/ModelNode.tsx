@@ -8,8 +8,6 @@ import { ModelFooter } from "../components/ModelFooter";
 import { FieldComponent } from "../components/FieldComponent";
 
 interface ModelNodeData extends Model {
-  getAllModels?: () => Model[];
-  reactFlowNodes?: ReactFlowNode[];
   onFieldUpdate?: (
     fieldId: string,
     fieldName: string,
@@ -53,48 +51,6 @@ export const ModelNode: React.FC<NodeProps<ModelNodeData>> = ({ data, id }) => {
       return orderDiff !== 0 ? orderDiff : a.name.localeCompare(b.name);
     });
   }, [data.attributes]);
-
-  // ✅ Memoize all models with better dependency tracking
-  const reactFlowNodes = useMemo(() => {
-    console.log("🔄 ModelNode - Getting reactFlowNodes for", data.name);
-
-    let nodes: ReactFlowNode[] = [];
-
-    if (data.reactFlowNodes) {
-      nodes = data.reactFlowNodes;
-      console.log(
-        "📦 From reactFlowNodes prop:",
-        nodes.map((n) => `${n.data.name}(${n.id})`)
-      );
-    } else if (data.getAllModels) {
-      // ✅ Fallback: Convert models to ReactFlow nodes structure
-      const models = data.getAllModels();
-      nodes = models.map(
-        (model, index) =>
-          ({
-            id: model.id,
-            position: { x: 0, y: 0 }, // Dummy position
-            data: model,
-            type: "model",
-          } as ReactFlowNode)
-      );
-      console.log(
-        "📦 Converted from getAllModels:",
-        nodes.map((n) => `${n.data.name}(${n.id})`)
-      );
-    } else {
-      console.warn("⚠️ No reactFlowNodes source available");
-      nodes = [];
-    }
-
-    return nodes;
-  }, [
-    data.reactFlowNodes,
-    data.getAllModels,
-    data.name,
-    data.lastUpdate,
-    data.lastNameUpdate,
-  ]);
 
   // ✅ Ultra-stable handlers with proper dependencies
   const handleFieldNameUpdate = useCallback(
@@ -229,25 +185,7 @@ export const ModelNode: React.FC<NodeProps<ModelNodeData>> = ({ data, id }) => {
   const handleDeleteModel = useCallback(() => {
     if (!data.onDeleteModel) return;
 
-    // More thorough connection checking
-    // const hasOutgoingConnections = data.attributes?.some(
-    //   (attr) => attr.connection
-    // );
-    // const hasIncomingConnections = allModels.some((model) =>
-    //   model.attributes?.some(
-    //     (attr) => attr.connection?.targetModelId === data.name
-    //   )
-    // );
-
-    // if (hasOutgoingConnections || hasIncomingConnections) {
-    //   console.warn(`❌ Cannot delete ${data.name}: has connections`);
-    //   return;
-    // }
-
-    console.log(`🗑️ Deleting model: ${data.name}`);
-    console.log(data);
     data.onDeleteModel(data.id);
-    console.log(data.onDeleteModel);
   }, [data.onDeleteModel, data.attributes, data.name]);
 
   // ✅ Generate unique keys for attributes to prevent re-rendering issues
