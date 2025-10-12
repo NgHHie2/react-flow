@@ -17,6 +17,7 @@ import { useDragHandlers } from "./useDragHandlers";
 import { calculateOptimalHandlePositions } from "../utils/handlePositioning";
 import { Attribute } from "../SchemaVisualizer/SchemaVisualizer.types";
 import { generateAttributeId, generateModelId } from "../utils/uuid.utils";
+import { useWebSocketListener } from "./useWebSocketListener";
 
 export const useSchemaVisualizer = () => {
   const {
@@ -48,20 +49,6 @@ export const useSchemaVisualizer = () => {
 
   const hasInitialized = useRef(false);
   const currentNodesRef = useRef<any[]>([]);
-
-  // ⭐ WebSocket handlers (cho việc nhận messages)
-  const websocketHandlers = useWebSocketHandlers({
-    updateNodePosition,
-    updateFieldName,
-    updateFieldType,
-    addAttribute,
-    deleteAttribute,
-    addModel,
-    updateModelName,
-    deleteModel,
-    setReactFlowNodes,
-    setIsUpdatingFromWebSocket,
-  });
 
   // ⭐ WebSocket sender (cho việc gửi messages) - đọc từ global state
   const {
@@ -515,11 +502,33 @@ export const useSchemaVisualizer = () => {
     [onNodesChange, reactFlowNodes, updateNodePosition, isUpdatingFromWebSocket]
   );
 
+  // ⭐ WebSocket handlers (cho việc nhận messages)
+  const websocketHandlers = useWebSocketHandlers({
+    updateNodePosition,
+    updateFieldName,
+    updateFieldType,
+    addAttribute,
+    deleteAttribute,
+    addModel,
+    updateModelName,
+    deleteModel,
+    setReactFlowNodes,
+    setIsUpdatingFromWebSocket,
+    stableCallbacks,
+  });
+
+  // ✅ Gọi useWebSocketListener ở đây
+  const { isConnected: wsIsConnected } = useWebSocketListener({
+    handlers: websocketHandlers,
+    enabled: true,
+  });
+
   return {
     // Data state
     loading,
     error,
     schemaInfo,
+    isConnected: wsIsConnected,
 
     // ReactFlow state
     reactFlowNodes,
@@ -540,8 +549,5 @@ export const useSchemaVisualizer = () => {
     handleAddModel,
     handleModelNameUpdate,
     handleDeleteModel,
-
-    // ⭐ Export websocketHandlers để SchemaVisualizer có thể pass cho listener
-    websocketHandlers: websocketHandlers.current,
   };
 };

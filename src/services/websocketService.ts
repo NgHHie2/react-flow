@@ -116,12 +116,34 @@ class WebSocketService {
 
   private handleConnect(frame: any): void {
     console.log("✅ Connected to WebSocket");
+
+    // ✅ Prevent double subscription
+    if (this.state.connected) {
+      console.warn("⚠️ Already connected and subscribed");
+      return;
+    }
+
     this.state.connected = true;
     this.state.reconnectAttempts = 0;
-    console.log(`🆔 Session ID: ${this.state.sessionId}`);
 
-    this.handlers.onConnect?.();
-    this.subscribeToUpdates();
+    // Get sessionId...
+    const socket = (this.client as any)?._webSocket;
+    if (socket) {
+      const sessionUrl = socket._transport?.url;
+      if (sessionUrl) {
+        const result = /\/([^/]+)\/websocket$/.exec(sessionUrl);
+        if (result && result[1]) {
+          this.state.sessionId = result[1];
+          console.log(`🆔 Session ID: ${this.state.sessionId}`);
+        }
+      }
+    }
+
+    // ✅ Subscribe with a small delay to ensure STOMP is ready
+    setTimeout(() => {
+      this.subscribeToUpdates();
+      this.handlers.onConnect?.();
+    }, 50);
   }
 
   private handleDisconnect(): void {
@@ -179,7 +201,11 @@ class WebSocketService {
   }
 
   private subscribeToUpdates(): void {
-    if (!this.client || !this.state.connected) return;
+    // ✅ Chỉ check this.client và this.state.connected
+    if (!this.client || !this.state.connected) {
+      console.warn("⚠️ Cannot subscribe: client not ready");
+      return;
+    }
 
     try {
       // Subscribe to schema updates
@@ -196,6 +222,9 @@ class WebSocketService {
     } catch (error) {
       console.error("❌ Error subscribing to updates:", error);
       this.handlers.onError?.("Failed to subscribe to updates");
+
+      // ❌ KHÔNG retry - throw error để reconnect mechanism xử lý
+      throw error;
     }
   }
 

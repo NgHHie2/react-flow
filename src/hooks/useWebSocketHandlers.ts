@@ -12,6 +12,7 @@ interface UseWebSocketHandlersProps {
   updateModelName: any;
   deleteModel: any;
   setIsUpdatingFromWebSocket?: React.Dispatch<React.SetStateAction<boolean>>;
+  stableCallbacks?: any;
 }
 
 export const useWebSocketHandlers = ({
@@ -25,6 +26,7 @@ export const useWebSocketHandlers = ({
   deleteModel,
   setReactFlowNodes,
   setIsUpdatingFromWebSocket,
+  stableCallbacks,
 }: UseWebSocketHandlersProps) => {
   // Create stable handlers with useCallback to prevent unnecessary re-renders
   const handleNodePositionUpdate = useCallback(
@@ -217,30 +219,6 @@ export const useWebSocketHandlers = ({
         console.log("✅ Adding model with real ID:", data.realModelId);
 
         setReactFlowNodes((currentNodes: any) => {
-          // ⭐ Lấy callbacks từ node hiện có để copy sang node mới
-          const existingNodeWithCallbacks = currentNodes[0]; // Lấy callback từ node đầu tiên
-          const callbacks = existingNodeWithCallbacks
-            ? {
-                onFieldUpdate: existingNodeWithCallbacks.data.onFieldUpdate,
-                onToggleKeyType: existingNodeWithCallbacks.data.onToggleKeyType,
-                onAddAttribute: existingNodeWithCallbacks.data.onAddAttribute,
-                onDeleteAttribute:
-                  existingNodeWithCallbacks.data.onDeleteAttribute,
-                onForeignKeyTargetSelect:
-                  existingNodeWithCallbacks.data.onForeignKeyTargetSelect,
-                onForeignKeyDisconnect:
-                  existingNodeWithCallbacks.data.onForeignKeyDisconnect,
-                onModelNameUpdate:
-                  existingNodeWithCallbacks.data.onModelNameUpdate,
-                onDeleteModel: existingNodeWithCallbacks.data.onDeleteModel,
-              }
-            : {};
-
-          console.log("🔧 Copying callbacks to new node:", {
-            hasCallbacks: Object.keys(callbacks).length > 0,
-            hasOnDeleteModel: !!callbacks.onDeleteModel,
-          });
-
           const newNode = {
             id: data.realModelId,
             position: { x: data.positionX, y: data.positionY },
@@ -256,21 +234,16 @@ export const useWebSocketHandlers = ({
               borderRadius: 8,
               attributes: [],
               zindex: 10,
-              // ⭐ Thêm callbacks ngay lập tức
-              ...callbacks,
+              ...stableCallbacks, // ✅ Dùng stableCallbacks ở đây
             },
             type: "model",
           };
 
-          console.log("newnode: ", newNode);
-
-          const updatedNodes = [...currentNodes, newNode];
-
-          return updatedNodes;
+          return [...currentNodes, newNode];
         });
       }
     },
-    [setReactFlowNodes]
+    [setReactFlowNodes, stableCallbacks] // ✅ Thêm dependency
   );
 
   const handleUpdateModelName = useCallback(
@@ -453,5 +426,17 @@ export const useWebSocketHandlers = ({
     handleDeleteModel,
   ]);
 
-  return websocketHandlers;
+  return {
+    onNodePositionUpdate: handleNodePositionUpdate,
+    onFieldNameUpdate: handleFieldNameUpdate,
+    onFieldTypeUpdate: handleFieldTypeUpdate,
+    onToggleKeyType: handleToggleKeyType,
+    onAddAttribute: handleAddAttribute,
+    onDeleteAttribute: handleDeleteAttribute,
+    onForeignKeyConnect: handleForeignKeyConnect,
+    onForeignKeyDisconnect: handleForeignKeyDisconnect,
+    onAddModel: handleAddModel,
+    onUpdateModelName: handleUpdateModelName,
+    onDeleteModel: handleDeleteModel,
+  };
 };
