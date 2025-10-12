@@ -187,7 +187,6 @@ export const useNodeHandlers = ({
         isNullable: true,
         isPrimaryKey: false,
         isForeignKey: false,
-        attributeOrder: 0,
       };
 
       console.log("🆕 Creating new attribute:", newAttribute);

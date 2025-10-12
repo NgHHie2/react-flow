@@ -42,11 +42,8 @@ export const ModelNode: React.FC<NodeProps<ModelNodeData>> = ({ data, id }) => {
   const sortedAttributes = useMemo(() => {
     if (!data.attributes || !Array.isArray(data.attributes)) return [];
 
-    return [...data.attributes].sort((a, b) => {
-      // Primary sort by order, secondary by name for stability
-      const orderDiff = (a.attributeOrder || 0) - (b.attributeOrder || 0);
-      return orderDiff !== 0 ? orderDiff : a.name.localeCompare(b.name);
-    });
+    // ✅ Không sort, giữ nguyên thứ tự từ array
+    return data.attributes;
   }, [data.attributes]);
 
   // ✅ Ultra-stable handlers with proper dependencies

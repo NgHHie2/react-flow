@@ -67,20 +67,81 @@ export const useWebSocketHandlers = ({
 
   const handleFieldNameUpdate = useCallback(
     (data: any) => {
-      console.log("✏️ Received field update from OTHER client:", data);
+      console.log("✏️ Received field name update from OTHER client:", data);
 
-      // ⭐ Cũng update data store
-      updateFieldName(data.attributeId, data.attributeName);
+      setReactFlowNodes((currentNodes: any) => {
+        return currentNodes.map((node: any) => {
+          // Kiểm tra xem node này có chứa attribute cần update không
+          const hasAttribute = node.data.attributes?.some(
+            (attr: any) => attr.id === data.attributeId
+          );
+
+          if (!hasAttribute) return node;
+
+          const updatedAttributes = node.data.attributes.map((attr: any) => {
+            if (attr.id === data.attributeId) {
+              return {
+                ...attr,
+                name: data.attributeName,
+              };
+            }
+            return attr;
+          });
+
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              attributes: updatedAttributes,
+              lastAttributeUpdate: Date.now(),
+            },
+          };
+        });
+      });
     },
     [setReactFlowNodes]
   );
 
   const handleFieldTypeUpdate = useCallback(
     (data: any) => {
-      console.log("✏️ Received field update from OTHER client:", data);
+      console.log("🔧 Received field type update from OTHER client:", data);
 
-      // ⭐ Cũng update data store
-      updateFieldType(data.attributeId, data.attributeType);
+      setReactFlowNodes((currentNodes: any) => {
+        return currentNodes.map((node: any) => {
+          // Kiểm tra xem node này có chứa attribute cần update không
+          const hasAttribute = node.data.attributes?.some(
+            (attr: any) => attr.id === data.attributeId
+          );
+
+          if (!hasAttribute) return node;
+
+          const updatedAttributes = node.data.attributes.map((attr: any) => {
+            if (attr.id === data.attributeId) {
+              return {
+                ...attr,
+                dataType: data.attributeType,
+                ...(data.length !== undefined && { length: data.length }),
+                ...(data.precisionValue !== undefined && {
+                  precisionValue: data.precisionValue,
+                }),
+                ...(data.scaleValue !== undefined && {
+                  scaleValue: data.scaleValue,
+                }),
+              };
+            }
+            return attr;
+          });
+
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              attributes: updatedAttributes,
+              lastAttributeUpdate: Date.now(),
+            },
+          };
+        });
+      });
     },
     [setReactFlowNodes]
   );
@@ -287,14 +348,11 @@ export const useWebSocketHandlers = ({
     (data: any) => {
       console.log("🗑️ Received delete model from backend:", data);
 
-      // setReactFlowNodes((prevNodes: any[]) =>
-      //   prevNodes.filter((node) => node.id !== data.modelId)
-      // );
-
-      // ⭐ QUAN TRỌNG: Cũng cần update data store để đồng bộ
-      deleteModel(data.modelId);
+      setReactFlowNodes((currentNodes: any) => {
+        return currentNodes.filter((node: any) => node.id !== data.modelId);
+      });
     },
-    [setReactFlowNodes, deleteModel]
+    [setReactFlowNodes]
   );
   // FIX 2: Optimized FK handlers to prevent full re-render
   const handleForeignKeyConnect = useCallback(

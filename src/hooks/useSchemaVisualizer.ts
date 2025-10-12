@@ -357,12 +357,6 @@ export const useSchemaVisualizer = () => {
         node.data.reactFlowNodes = newNodes;
       });
 
-      console.log("🔧 Updated reactFlowNodes references:", {
-        nodesCount: newNodes.length,
-        firstNodeHasReactFlowNodes: !!newNodes[0]?.data?.reactFlowNodes,
-        reactFlowNodesCount: newNodes[0]?.data?.reactFlowNodes?.length,
-      });
-
       return newNodes;
     });
   }, [nodesFingerprint, stableCallbacks, nodes, setReactFlowNodes]);
@@ -371,6 +365,22 @@ export const useSchemaVisualizer = () => {
   useEffect(() => {
     currentNodesRef.current = reactFlowNodes;
   }, [reactFlowNodes]);
+
+  useEffect(() => {
+    if (reactFlowNodes.length === 0) return;
+
+    console.log("🔄 Connection state changed, re-injecting callbacks");
+    setReactFlowNodes((currentNodes) => {
+      return currentNodes.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          ...stableCallbacks,
+          lastCallbackUpdate: Date.now(),
+        },
+      }));
+    });
+  }, [isConnected]);
 
   // Optimized edge calculation
   const edgesFingerprint = useMemo(() => {
@@ -518,7 +528,7 @@ export const useSchemaVisualizer = () => {
   });
 
   // ✅ Gọi useWebSocketListener ở đây
-  const { isConnected: wsIsConnected } = useWebSocketListener({
+  useWebSocketListener({
     handlers: websocketHandlers,
     enabled: true,
   });
@@ -528,7 +538,7 @@ export const useSchemaVisualizer = () => {
     loading,
     error,
     schemaInfo,
-    isConnected: wsIsConnected,
+    isConnected,
 
     // ReactFlow state
     reactFlowNodes,
