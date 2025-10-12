@@ -1,4 +1,4 @@
-// src/hooks/useSchemaVisualizer.ts - Comprehensive fixes
+// src/hooks/useSchemaVisualizer.ts - Updated với WebSocket sender
 import { useCallback, useRef, useEffect, useState, useMemo } from "react";
 import {
   useNodesState,
@@ -10,7 +10,7 @@ import {
   NodeChange,
 } from "reactflow";
 import { useSchemaData } from "./useSchemaData";
-import { useWebSocket } from "./useWebSocket";
+import { useWebSocketSender } from "./useWebSocketSender";
 import { useWebSocketHandlers } from "./useWebSocketHandlers";
 import { useNodeHandlers } from "./useNodeHandlers";
 import { useDragHandlers } from "./useDragHandlers";
@@ -48,9 +48,8 @@ export const useSchemaVisualizer = () => {
 
   const hasInitialized = useRef(false);
   const currentNodesRef = useRef<any[]>([]);
-  const isUpdatingFromWebSocketRef = useRef(false); // FIX 1: Add WebSocket update flag
 
-  // WebSocket handlers
+  // ⭐ WebSocket handlers (cho việc nhận messages)
   const websocketHandlers = useWebSocketHandlers({
     updateNodePosition,
     updateFieldName,
@@ -64,7 +63,7 @@ export const useSchemaVisualizer = () => {
     setIsUpdatingFromWebSocket,
   });
 
-  // WebSocket connection
+  // ⭐ WebSocket sender (cho việc gửi messages) - đọc từ global state
   const {
     isConnected,
     sendNodePositionUpdate,
@@ -78,7 +77,7 @@ export const useSchemaVisualizer = () => {
     sendAddModel,
     sendUpdateModelName,
     sendDeleteModel,
-  } = useWebSocket(websocketHandlers.current);
+  } = useWebSocketSender();
 
   // Node action handlers
   const {
@@ -113,10 +112,10 @@ export const useSchemaVisualizer = () => {
     [setReactFlowEdges]
   );
 
-  // FIX 2: Stable model operation handlers
+  // Model operation handlers
   const handleAddModel = useCallback(() => {
     if (!schemaInfo) return;
-    console.log("kho hieu: ", reactFlowNodes);
+    console.log("Adding model, current nodes:", reactFlowNodes);
     const newModelId = generateModelId();
     const positionX = Math.random() * 400 + 100;
     const positionY = Math.random() * 300 + 100;
@@ -124,24 +123,18 @@ export const useSchemaVisualizer = () => {
     console.log("🆕 Adding new model:", { newModelId, positionX, positionY });
 
     setReactFlowNodes((currentNodes: any) => {
-      // ⭐ Lấy callbacks từ node hiện có để copy sang node mới
-      const existingNodeWithCallbacks = currentNodes[0]; // Lấy callback từ node đầu tiên
-      const callbacks = existingNodeWithCallbacks
-        ? {
-            onFieldNameUpdate: existingNodeWithCallbacks.data.onFieldNameUpdate,
-            onFieldTypeUpdate: existingNodeWithCallbacks.data.onFieldTypeUpdate,
-            onToggleKeyType: existingNodeWithCallbacks.data.onToggleKeyType,
-            onAddAttribute: existingNodeWithCallbacks.data.onAddAttribute,
-            onDeleteAttribute: existingNodeWithCallbacks.data.onDeleteAttribute,
-            onForeignKeyTargetSelect:
-              existingNodeWithCallbacks.data.onForeignKeyTargetSelect,
-            onForeignKeyDisconnect:
-              existingNodeWithCallbacks.data.onForeignKeyDisconnect,
-            onModelNameUpdate: existingNodeWithCallbacks.data.onModelNameUpdate,
-            onDeleteModel: existingNodeWithCallbacks.data.onDeleteModel,
-          }
-        : {};
-
+      // Lấy callbacks từ node hiện có để copy sang node mới
+      const callbacks = {
+        onFieldNameUpdate: handleFieldNameUpdate,
+        onFieldTypeUpdate: handleFieldTypeUpdate,
+        onToggleKeyType: handleToggleKeyType,
+        onAddAttribute: handleAddAttribute,
+        onDeleteAttribute: handleDeleteAttribute,
+        onForeignKeyTargetSelect: handleForeignKeyTargetSelect,
+        onForeignKeyDisconnect: handleForeignKeyDisconnect,
+        onModelNameUpdate: handleModelNameUpdate,
+        onDeleteModel: handleDeleteModel,
+      };
       console.log("🔧 Copying callbacks to new node:", {
         hasCallbacks: Object.keys(callbacks).length > 0,
         hasOnDeleteModel: !!callbacks.onDeleteModel,
@@ -162,20 +155,16 @@ export const useSchemaVisualizer = () => {
           borderRadius: 8,
           attributes: [],
           zindex: 10,
-          // ⭐ Thêm callbacks ngay lập tức
           ...callbacks,
         },
         type: "model",
       };
 
-      console.log("newnode: ", newNode);
-
-      const updatedNodes = [...currentNodes, newNode];
-
-      return updatedNodes;
+      console.log("New node created:", newNode);
+      return [...currentNodes, newNode];
     });
 
-    // KHÔNG cập nhật UI ngay, chỉ gửi WebSocket và chờ response
+    // Gửi WebSocket để sync với backend và các clients khác
     if (isConnected) {
       sendAddModel({
         modelId: newModelId,
@@ -183,12 +172,16 @@ export const useSchemaVisualizer = () => {
         positionY,
         databaseDiagramId: schemaInfo.id,
       });
-
       console.log("📤 Sent add model request, waiting for backend response...");
     }
-  }, [schemaInfo, isConnected]);
+  }, [
+    schemaInfo,
+    isConnected,
+    reactFlowNodes,
+    sendAddModel,
+    setReactFlowNodes,
+  ]);
 
-  // FIX 3: Improved model name update handler
   const handleModelNameUpdate = useCallback(
     (modelId: string, oldName: string, newName: string) => {
       console.log("🏷️ handleModelNameUpdate called:", { modelId, newName });
@@ -204,7 +197,7 @@ export const useSchemaVisualizer = () => {
 
       const trimmedNewName = newName.trim();
 
-      // ⭐ Update local UI immediately
+      // Update local UI immediately
       setReactFlowNodes((currentNodes: any) => {
         return currentNodes.map((currentNode: any) => {
           if (currentNode.id === modelId) {
@@ -221,14 +214,13 @@ export const useSchemaVisualizer = () => {
             ...currentNode,
             data: {
               ...currentNode.data,
-              lastUpdate: Date.now(), // Force dependency change
+              lastUpdate: Date.now(),
             },
           };
         });
       });
-      console.log("hiep dep trai: ", currentNodesRef);
 
-      // ⭐ Gửi WebSocket để sync với other clients
+      // Gửi WebSocket để sync với other clients
       if (isConnected) {
         console.log("📤 Sending model name update via WebSocket");
         sendUpdateModelName({
@@ -246,53 +238,33 @@ export const useSchemaVisualizer = () => {
   const handleDeleteModel = useCallback(
     (modelId: string) => {
       const node = reactFlowNodesRef.current.find((n: any) => n.id === modelId);
-      console.log("hiep dep trai");
+
       if (!node) {
         console.warn(`⚠️ Node not found for delete: ${modelId}`);
         return;
       }
 
-      // Check connections trước khi xóa
-      const hasConnections =
-        node.data.attributes?.some((attr: any) => attr.connection) ||
-        reactFlowNodes.some(
-          (otherNode: any) =>
-            otherNode.id !== modelId &&
-            otherNode.data.attributes?.some(
-              (attr: any) => attr.connection?.targetModelId === modelId
-            )
-        );
-
-      // if (hasConnections) {
-      //   console.warn("❌ Cannot delete model with connections:", modelName);
-      //   return;
-      // }
-
       console.log(`🗑️ Deleting model: ${modelId}`);
       setReactFlowNodes((prevNodes: any[]) => {
-        const afterFilter = prevNodes.filter((node) => node.id !== modelId);
-
-        return afterFilter;
+        return prevNodes.filter((node) => node.id !== modelId);
       });
 
-      // Gửi WebSocket với cả modelName và modelId
-
-      sendDeleteModel({
-        modelId: modelId,
-      });
+      // Gửi WebSocket
+      if (isConnected) {
+        sendDeleteModel({
+          modelId: modelId,
+        });
+      }
     },
-    [reactFlowNodes, sendDeleteModel, isConnected]
+    [reactFlowNodes, sendDeleteModel, isConnected, setReactFlowNodes]
   );
-  useEffect(() => {
-    console.log("🌟 reactFlowNodes hiện tại:", reactFlowNodes);
-  }, [reactFlowNodes]);
 
-  // FIX 4: Ultra-stable callbacks with proper memoization
+  // Stable callbacks with proper memoization
   const stableCallbacks = useMemo(
     () => ({
       onFieldNameUpdate: handleFieldNameUpdate,
       onFieldTypeUpdate: handleFieldTypeUpdate,
-      onToggleKeyType: handleToggleKeyType, // Signature: (modelName, attributeId, keyType)
+      onToggleKeyType: handleToggleKeyType,
       onAddAttribute: handleAddAttribute,
       onDeleteAttribute: handleDeleteAttribute,
       onForeignKeyTargetSelect: handleForeignKeyTargetSelect,
@@ -312,29 +284,29 @@ export const useSchemaVisualizer = () => {
       handleDeleteModel,
     ]
   );
+
   // Basic action handlers
   const handleInitialize = useCallback(() => {
-    initializeData(stableCallbacks); // ✅ Pass callbacks
+    initializeData(stableCallbacks);
   }, [initializeData, stableCallbacks]);
 
   const handleReset = useCallback(() => {
-    initializeData(stableCallbacks); // ✅ Pass callbacks
+    initializeData(stableCallbacks);
   }, [initializeData, stableCallbacks]);
 
   const handleRefresh = useCallback(() => {
-    fetchSchemaData(stableCallbacks); // ✅ Pass callbacks
+    fetchSchemaData(stableCallbacks);
   }, [fetchSchemaData, stableCallbacks]);
 
   // Initialize data on first mount
   useEffect(() => {
     if (!hasInitialized.current) {
       hasInitialized.current = true;
-      // ✅ THAY ĐỔI: Pass stableCallbacks khi fetch initial data
       fetchSchemaData(stableCallbacks);
     }
   }, [fetchSchemaData, stableCallbacks]);
 
-  // FIX 5: Smarter node synchronization with change detection
+  // Node synchronization with change detection
   const nodesFingerprint = useMemo(() => {
     return nodes.map((node) => ({
       id: node.id,
@@ -378,13 +350,12 @@ export const useSchemaVisualizer = () => {
     setReactFlowNodes((currentNodes) => {
       currentNodesRef.current = currentNodes;
 
-      // Preserve positions for existing nodes to prevent position conflicts
+      // Preserve positions for existing nodes
       const positionMap = new Map();
       currentNodes.forEach((node) => {
         positionMap.set(node.id, node.position);
       });
 
-      // ✅ CRITICAL FIX: Create new nodes array with proper reactFlowNodes reference
       const newNodes = nodes.map((node) => ({
         ...node,
         position: positionMap.get(node.id) || node.position,
@@ -394,9 +365,9 @@ export const useSchemaVisualizer = () => {
         },
       }));
 
-      // ✅ CRITICAL: Update reactFlowNodes reference for ALL nodes after creating array
+      // Update reactFlowNodes references for ALL nodes
       newNodes.forEach((node) => {
-        node.data.reactFlowNodes = newNodes; // Self-reference to the new array
+        node.data.reactFlowNodes = newNodes;
       });
 
       console.log("🔧 Updated reactFlowNodes references:", {
@@ -407,14 +378,14 @@ export const useSchemaVisualizer = () => {
 
       return newNodes;
     });
-  }, [nodesFingerprint, stableCallbacks, nodes]);
+  }, [nodesFingerprint, stableCallbacks, nodes, setReactFlowNodes]);
 
   // Keep currentNodesRef updated
   useEffect(() => {
     currentNodesRef.current = reactFlowNodes;
   }, [reactFlowNodes]);
 
-  // FIX 6: Optimized edge calculation with better change detection
+  // Optimized edge calculation
   const edgesFingerprint = useMemo(() => {
     if (reactFlowNodes.length === 0) return "empty";
 
@@ -475,11 +446,7 @@ export const useSchemaVisualizer = () => {
             sourceHandle: handlePositions.sourceHandleId,
             targetHandle: handlePositions.targetHandleId,
             animated: connection.isAnimated || true,
-            type: "smoothstep",
-            pathOptions: {
-              borderRadius: 30,
-              offset: 50,
-            },
+            type: "step",
             style: {
               strokeWidth: 2,
               stroke: connection.strokeColor || "#4A90E2",
@@ -510,7 +477,7 @@ export const useSchemaVisualizer = () => {
     setReactFlowEdges(edgesData);
   }, [edgesData, setReactFlowEdges]);
 
-  // FIX 7: Enhanced onNodesChange with proper position handling
+  // Enhanced onNodesChange with proper position handling
   const enhancedOnNodesChange = useCallback(
     (changes: NodeChange[]) => {
       // Separate position changes from other changes
@@ -529,9 +496,7 @@ export const useSchemaVisualizer = () => {
       // Handle position changes with WebSocket consideration
       positionChanges.forEach((change) => {
         if (change.type === "position" && change.position && !change.dragging) {
-          // Position change is finalized (not during drag)
           const node = reactFlowNodes.find((n) => n.id === change.id);
-          // FIX: Use the new state instead of ref
           if (node && !isUpdatingFromWebSocket) {
             console.log(
               `📍 Position finalized for ${change.id}:`,
@@ -547,7 +512,7 @@ export const useSchemaVisualizer = () => {
         onNodesChange(positionChanges);
       }
     },
-    [onNodesChange, reactFlowNodes, updateNodePosition, isUpdatingFromWebSocket] // Add dependency
+    [onNodesChange, reactFlowNodes, updateNodePosition, isUpdatingFromWebSocket]
   );
 
   return {
@@ -568,9 +533,6 @@ export const useSchemaVisualizer = () => {
     onNodeDrag,
     onNodeDragStop,
 
-    // WebSocket state
-    isConnected,
-
     // Action handlers
     handleRefresh,
     handleReset,
@@ -578,5 +540,8 @@ export const useSchemaVisualizer = () => {
     handleAddModel,
     handleModelNameUpdate,
     handleDeleteModel,
+
+    // ⭐ Export websocketHandlers để SchemaVisualizer có thể pass cho listener
+    websocketHandlers: websocketHandlers.current,
   };
 };

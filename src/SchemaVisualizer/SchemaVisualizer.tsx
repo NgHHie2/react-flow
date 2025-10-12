@@ -1,19 +1,18 @@
-// src/SchemaVisualizer/SchemaVisualizer.tsx - Fixed drag handling
+// src/SchemaVisualizer/SchemaVisualizer.tsx - Updated với WebSocket listener
 import React from "react";
 import { Box } from "@chakra-ui/react";
 
 // Components
 import { LoadingScreen } from "../components/LoadingScreen";
-import { ErrorScreen } from "../components/ErrorScreen";
-import { EmptyState } from "../components/EmptyState";
 import { ControlPanel } from "../components/ControlPanel";
 import { SchemaInfoPanel } from "../components/SchemaInfoPanel";
 import { ConnectionStatus } from "../components/ConnectionStatus";
 import { ReactFlowCanvas } from "../components/ReactFlowCanvas";
+import { AddModelButton } from "../components/AddModelButton";
 
 // Hooks
 import { useSchemaVisualizer } from "../hooks/useSchemaVisualizer";
-import { AddModelButton } from "../components/AddModelButton";
+import { useWebSocketListener } from "../hooks/useWebSocketListener";
 
 export const SchemaVisualizer = () => {
   const {
@@ -34,42 +33,28 @@ export const SchemaVisualizer = () => {
     onNodeDrag,
     onNodeDragStop,
 
-    // WebSocket state
-    isConnected,
-
     // Action handlers
     handleDeleteModel,
     handleAddModel,
     handleRefresh,
     handleReset,
     handleInitialize,
+
+    // WebSocket handlers (để pass cho listener)
+    websocketHandlers,
   } = useSchemaVisualizer();
+
+  // ⭐ Setup WebSocket listener ở đây thay vì trong useSchemaVisualizer
+  const { isConnected } = useWebSocketListener({
+    handlers: websocketHandlers,
+    enabled: true,
+  });
 
   // Render loading state
   if (loading) {
     console.log("Rendering loading screen");
     return <LoadingScreen message="Loading schema data..." />;
   }
-
-  // Render error state
-  if (error) {
-    console.log("Rendering error screen:", error);
-    return (
-      <ErrorScreen
-        error={error}
-        onRetry={handleRefresh}
-        onInitialize={handleInitialize}
-      />
-    );
-  }
-
-  // Render empty state
-  if (reactFlowNodes.length === 0) {
-    console.log("Rendering empty state");
-    return <EmptyState onInitialize={handleInitialize} />;
-  }
-
-  console.log(reactFlowNodes);
 
   // Render main schema visualizer
   return (
@@ -82,10 +67,8 @@ export const SchemaVisualizer = () => {
           edgesCount={reactFlowEdges.length}
         />
       )} */}
-      <AddModelButton
-        isConnected={isConnected}
-        onAddModel={handleAddModel}
-      ></AddModelButton>
+
+      <AddModelButton isConnected={isConnected} onAddModel={handleAddModel} />
 
       {/* Control Panel */}
       <ControlPanel
