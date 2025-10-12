@@ -284,7 +284,7 @@ export const useSchemaVisualizer = () => {
     [reactFlowNodes, sendDeleteModel, isConnected]
   );
   useEffect(() => {
-    console.log("🌟 reactFlowNodes hiện tại:", reactFlowNodes);
+    // console.log("🌟 reactFlowNodes hiện tại:", reactFlowNodes);
   }, [reactFlowNodes]);
 
   // FIX 4: Ultra-stable callbacks with proper memoization

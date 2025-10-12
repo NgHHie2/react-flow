@@ -4,8 +4,6 @@ import { Box } from "@chakra-ui/react";
 
 // Components
 import { LoadingScreen } from "../components/LoadingScreen";
-import { ErrorScreen } from "../components/ErrorScreen";
-import { EmptyState } from "../components/EmptyState";
 import { ControlPanel } from "../components/ControlPanel";
 import { SchemaInfoPanel } from "../components/SchemaInfoPanel";
 import { ConnectionStatus } from "../components/ConnectionStatus";
@@ -50,26 +48,6 @@ export const SchemaVisualizer = () => {
     console.log("Rendering loading screen");
     return <LoadingScreen message="Loading schema data..." />;
   }
-
-  // Render error state
-  if (error) {
-    console.log("Rendering error screen:", error);
-    return (
-      <ErrorScreen
-        error={error}
-        onRetry={handleRefresh}
-        onInitialize={handleInitialize}
-      />
-    );
-  }
-
-  // Render empty state
-  if (reactFlowNodes.length === 0) {
-    console.log("Rendering empty state");
-    return <EmptyState onInitialize={handleInitialize} />;
-  }
-
-  console.log(reactFlowNodes);
 
   // Render main schema visualizer
   return (
