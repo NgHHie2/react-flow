@@ -5,9 +5,9 @@ const API_BASE_URL = "http://localhost:8080/api/schema";
 
 export const schemaApiService = {
   // Get complete schema data
-  async getSchemaData(): Promise<SchemaData> {
+  async getSchemaData(diagramId: string): Promise<SchemaData> {
     try {
-      const response = await fetch(API_BASE_URL);
+      const response = await fetch(API_BASE_URL + "/" + diagramId);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

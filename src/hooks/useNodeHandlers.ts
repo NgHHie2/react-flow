@@ -1,6 +1,7 @@
 // src/hooks/useNodeHandlers.ts - Fixed version
 import { useCallback, useEffect, useRef } from "react";
 import { generateAttributeId } from "../utils/uuid.utils";
+import { getVietnamTime } from "../utils";
 
 interface UseNodeHandlersProps {
   setReactFlowNodes: any;
@@ -49,7 +50,11 @@ export const useNodeHandlers = ({
 
           const updatedAttributes = node.data.attributes.map((attr: any) => {
             if (attr.id === attributeId) {
-              return { ...attr, name: attributeName };
+              return {
+                ...attr,
+                name: attributeName,
+                nameUpdatedAt: getVietnamTime(),
+              };
             }
             return attr;
           });
@@ -59,7 +64,7 @@ export const useNodeHandlers = ({
             data: {
               ...node.data,
               attributes: updatedAttributes,
-              lastFieldNameUpdate: Date.now(), // ✅ Force re-render
+              // ✅ Force re-render
             },
           };
         });
@@ -86,7 +91,11 @@ export const useNodeHandlers = ({
 
           const updatedAttributes = node.data.attributes.map((attr: any) => {
             if (attr.id === attributeId) {
-              return { ...attr, dataType: attributeType };
+              return {
+                ...attr,
+                dataType: attributeType,
+                typeUpdatedAt: getVietnamTime(),
+              };
             }
             return attr;
           });
@@ -96,7 +105,6 @@ export const useNodeHandlers = ({
             data: {
               ...node.data,
               attributes: updatedAttributes,
-              lastFieldTypeUpdate: Date.now(), // ✅ Force re-render
             },
           };
         });
@@ -135,12 +143,14 @@ export const useNodeHandlers = ({
                   isPrimaryKey: true,
                   isForeignKey: false,
                   connection: undefined,
+                  keyTypeUpdatedAt: getVietnamTime(),
                 };
               case "FOREIGN":
                 return {
                   ...attr,
                   isPrimaryKey: false,
                   isForeignKey: true,
+                  keyTypeUpdatedAt: getVietnamTime(),
                   // Keep existing connection if any
                 };
               case "NORMAL":
@@ -149,6 +159,7 @@ export const useNodeHandlers = ({
                   isPrimaryKey: false,
                   isForeignKey: false,
                   connection: undefined,
+                  keyTypeUpdatedAt: getVietnamTime(),
                 };
               default:
                 return attr;
@@ -160,7 +171,6 @@ export const useNodeHandlers = ({
             data: {
               ...node.data,
               attributes: updatedAttributes,
-              lastKeyUpdate: Date.now(),
             },
           };
         });

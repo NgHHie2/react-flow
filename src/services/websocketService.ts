@@ -1,4 +1,4 @@
-// src/services/websocketService.ts - Updated with FK methods
+// src/services/websocketService.ts - Updated with Diagram Support
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 
@@ -23,8 +23,8 @@ import {
 // Constants
 import {
   WS_CONFIG,
-  DESTINATIONS,
-  TOPICS,
+  createDestinations,
+  createTopics,
 } from "../constants/websocket.constants";
 
 // Utils
@@ -40,15 +40,21 @@ import {
   messageTracker,
 } from "../utils/websocket.utils";
 
+// ⭐ Extended ConnectionState with diagramId
+interface ExtendedConnectionState extends ConnectionState {
+  diagramId: string | null; // Current diagram being viewed
+}
+
 class WebSocketService {
   private client: Client | null = null;
   private handlers: MessageHandler = {};
-  private state: ConnectionState = {
+  private state: ExtendedConnectionState = {
     connected: false,
     reconnectAttempts: 0,
     isManualDisconnect: false,
     reconnectTimeoutId: null,
     sessionId: null,
+    diagramId: null, // ⭐ NEW
   };
 
   constructor() {
@@ -67,8 +73,8 @@ class WebSocketService {
         console.log("🔄 HMR: Re-initializing WebSocket");
         this.resetState();
         setTimeout(() => {
-          if (Object.keys(this.handlers).length > 0) {
-            this.connect(this.handlers);
+          if (Object.keys(this.handlers).length > 0 && this.state.diagramId) {
+            this.connect(this.handlers, this.state.diagramId);
           }
         }, 1000);
       });
@@ -79,6 +85,7 @@ class WebSocketService {
     this.state.isManualDisconnect = false;
     this.state.reconnectAttempts = 0;
     this.state.sessionId = null;
+    // ⚠️ Don't reset diagramId - we might need it for reconnect
     safeCleanupTimeout(this.state.reconnectTimeoutId);
     this.state.reconnectTimeoutId = null;
     messageTracker.clear();
@@ -139,6 +146,12 @@ class WebSocketService {
       }
     }
 
+    // ⭐ Check if we have a diagramId before subscribing
+    if (!this.state.diagramId) {
+      console.warn("⚠️ No diagramId set, skipping subscription");
+      return;
+    }
+
     // ✅ Subscribe with a small delay to ensure STOMP is ready
     setTimeout(() => {
       this.subscribeToUpdates();
@@ -194,21 +207,26 @@ class WebSocketService {
       this.state.reconnectTimeoutId = setTimeout(() => {
         if (!this.state.isManualDisconnect && !this.state.connected) {
           this.client = this.createClient();
-          this.connect(this.handlers);
+          // ⭐ Use stored diagramId for reconnect
+          if (this.state.diagramId) {
+            this.connect(this.handlers, this.state.diagramId);
+          }
         }
       }, delay);
     }
   }
 
   private subscribeToUpdates(): void {
-    // ✅ Chỉ check this.client và this.state.connected
-    if (!this.client || !this.state.connected) {
-      console.warn("⚠️ Cannot subscribe: client not ready");
+    // ⭐ Check diagramId before subscribing
+    if (!this.client || !this.state.connected || !this.state.diagramId) {
+      console.warn("⚠️ Cannot subscribe: client not ready or no diagramId");
       return;
     }
 
     try {
-      // Subscribe to schema updates
+      const TOPICS = createTopics(this.state.diagramId);
+
+      // ⭐ Subscribe to DIAGRAM-SPECIFIC topic
       this.client.subscribe(TOPICS.schemaUpdates, (message) => {
         this.handleMessage(message.body);
       });
@@ -218,12 +236,10 @@ class WebSocketService {
         this.handleErrorMessage(message.body);
       });
 
-      console.log("📡 Subscribed to WebSocket topics");
+      console.log(`📡 Subscribed to diagram ${this.state.diagramId} updates`);
     } catch (error) {
       console.error("❌ Error subscribing to updates:", error);
       this.handlers.onError?.("Failed to subscribe to updates");
-
-      // ❌ KHÔNG retry - throw error để reconnect mechanism xử lý
       throw error;
     }
   }
@@ -258,25 +274,34 @@ class WebSocketService {
     }
 
     try {
-      // Create message with tracking ID
-      const enhancedData = createTrackedMessage(messageType, data);
+      // Create message with tracking ID and diagramId
+      const enhancedData = {
+        ...createTrackedMessage(messageType, data),
+        diagramId: this.state.diagramId, // ⭐ Include diagramId
+      };
 
       this.client!.publish({
         destination,
         body: JSON.stringify(enhancedData),
       });
 
-      console.log(`📤 Sent ${messageType}:`, enhancedData);
+      console.log(
+        `📤 Sent ${messageType} to diagram ${this.state.diagramId}:`,
+        enhancedData
+      );
     } catch (error) {
       console.error(`❌ Error sending ${messageType}:`, error);
       this.handlers.onError?.(`Failed to send ${messageType}`);
     }
   }
 
-  // Public API
-  connect(handlers: MessageHandler = {}): void {
+  // ⭐ NEW: Public API with diagramId parameter
+  connect(handlers: MessageHandler = {}, diagramId: string): void {
     this.handlers = { ...this.handlers, ...handlers };
     this.state.isManualDisconnect = false;
+    this.state.diagramId = diagramId; // ⭐ Store diagramId
+
+    console.log(`🔌 Connecting to diagram ${diagramId}...`);
 
     if (!this.state.connected) {
       try {
@@ -300,8 +325,31 @@ class WebSocketService {
     }
   }
 
-  // Message sending methods
+  // ⭐ NEW: Switch to different diagram
+  switchDiagram(newDiagramId: string): void {
+    if (this.state.diagramId === newDiagramId) {
+      console.log(`Already subscribed to diagram ${newDiagramId}`);
+      return;
+    }
+
+    console.log(
+      `🔄 Switching from diagram ${this.state.diagramId} to ${newDiagramId}`
+    );
+
+    // Disconnect and reconnect with new diagramId
+    this.disconnect();
+    setTimeout(() => {
+      this.connect(this.handlers, newDiagramId);
+    }, 100);
+  }
+
+  // Message sending methods - ⭐ Now use dynamic destinations
   sendNodePositionUpdate(update: NodePositionUpdate): void {
+    if (!this.state.diagramId) {
+      console.error("❌ No diagramId set");
+      return;
+    }
+    const DESTINATIONS = createDestinations(this.state.diagramId);
     this.sendMessage(
       DESTINATIONS.updateNodePosition,
       "NODE_POSITION_UPDATE",
@@ -309,11 +357,9 @@ class WebSocketService {
     );
   }
 
-  // sendFieldUpdate(update: FieldUpdate): void {
-  //   this.sendMessage(DESTINATIONS.updateAttribute, "FIELD_UPDATE", update);
-  // }
-
   sendFieldNameUpdate(update: FieldNameUpdate): void {
+    if (!this.state.diagramId) return;
+    const DESTINATIONS = createDestinations(this.state.diagramId);
     this.sendMessage(
       DESTINATIONS.updateAttributeName,
       "FIELD_NAME_UPDATE",
@@ -322,6 +368,8 @@ class WebSocketService {
   }
 
   sendFieldTypeUpdate(update: FieldTypeUpdate): void {
+    if (!this.state.diagramId) return;
+    const DESTINATIONS = createDestinations(this.state.diagramId);
     this.sendMessage(
       DESTINATIONS.updateAttributeType,
       "FIELD_TYPE_UPDATE",
@@ -330,19 +378,27 @@ class WebSocketService {
   }
 
   sendToggleKeyType(update: ToggleKeyTypeUpdate): void {
+    if (!this.state.diagramId) return;
+    const DESTINATIONS = createDestinations(this.state.diagramId);
     this.sendMessage(DESTINATIONS.toggleKeyType, "TOGGLE_KEY_TYPE", update);
   }
 
   sendAddAttribute(update: AddAttributeUpdate): void {
+    if (!this.state.diagramId) return;
+    const DESTINATIONS = createDestinations(this.state.diagramId);
     console.log("???");
     this.sendMessage(DESTINATIONS.addAttribute, "ADD_ATTRIBUTE", update);
   }
 
   sendDeleteAttribute(update: DeleteAttributeUpdate): void {
+    if (!this.state.diagramId) return;
+    const DESTINATIONS = createDestinations(this.state.diagramId);
     this.sendMessage(DESTINATIONS.deleteAttribute, "DELETE_ATTRIBUTE", update);
   }
 
   sendForeignKeyConnect(update: ForeignKeyConnectionUpdate): void {
+    if (!this.state.diagramId) return;
+    const DESTINATIONS = createDestinations(this.state.diagramId);
     this.sendMessage(
       DESTINATIONS.connectForeignKey,
       "FOREIGN_KEY_CONNECT",
@@ -351,6 +407,8 @@ class WebSocketService {
   }
 
   sendForeignKeyDisconnect(update: ForeignKeyDisconnectUpdate): void {
+    if (!this.state.diagramId) return;
+    const DESTINATIONS = createDestinations(this.state.diagramId);
     this.sendMessage(
       DESTINATIONS.disconnectForeignKey,
       "FOREIGN_KEY_DISCONNECT",
@@ -359,14 +417,20 @@ class WebSocketService {
   }
 
   sendAddModel(update: AddModelUpdate): void {
+    if (!this.state.diagramId) return;
+    const DESTINATIONS = createDestinations(this.state.diagramId);
     this.sendMessage(DESTINATIONS.addModel, "ADD_MODEL", update);
   }
 
   sendUpdateModelName(update: UpdateModelNameUpdate): void {
+    if (!this.state.diagramId) return;
+    const DESTINATIONS = createDestinations(this.state.diagramId);
     this.sendMessage(DESTINATIONS.updateModelName, "UPDATE_MODEL_NAME", update);
   }
 
   sendDeleteModel(update: DeleteModelUpdate): void {
+    if (!this.state.diagramId) return;
+    const DESTINATIONS = createDestinations(this.state.diagramId);
     this.sendMessage(DESTINATIONS.deleteModel, "DELETE_MODEL", update);
   }
 
@@ -379,6 +443,11 @@ class WebSocketService {
     return this.state.sessionId;
   }
 
+  // ⭐ NEW
+  getDiagramId(): string | null {
+    return this.state.diagramId;
+  }
+
   updateHandlers(handlers: Partial<MessageHandler>): void {
     this.handlers = { ...this.handlers, ...handlers };
   }
@@ -388,7 +457,7 @@ class WebSocketService {
   }
 
   // Debug methods (development only)
-  getConnectionState(): ConnectionState {
+  getConnectionState(): ExtendedConnectionState {
     return { ...this.state };
   }
 

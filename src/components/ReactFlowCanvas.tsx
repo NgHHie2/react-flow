@@ -28,6 +28,7 @@ interface ReactFlowCanvasProps {
   onNodeDragStart?: (event: React.MouseEvent, node: Node) => void;
   onNodeDrag?: (event: React.MouseEvent, node: Node) => void;
   onNodeDragStop: (event: React.MouseEvent, node: Node) => void;
+  onNodeClick?: (event: React.MouseEvent, node: Node) => void;
   schemaInfo?: SchemaData | null;
 }
 
@@ -40,6 +41,7 @@ export const ReactFlowCanvas: React.FC<ReactFlowCanvasProps> = ({
   onNodeDragStart,
   onNodeDrag,
   onNodeDragStop,
+  onNodeClick,
   schemaInfo,
 }) => {
   return (
@@ -52,6 +54,7 @@ export const ReactFlowCanvas: React.FC<ReactFlowCanvasProps> = ({
       onNodeDragStart={onNodeDragStart}
       onNodeDrag={onNodeDrag}
       onNodeDragStop={onNodeDragStop}
+      onNodeClick={onNodeClick}
       nodeTypes={modelTypes}
       fitView
       fitViewOptions={{ padding: 0.4 }}
@@ -70,13 +73,14 @@ export const ReactFlowCanvas: React.FC<ReactFlowCanvasProps> = ({
         y: schemaInfo?.panY || 0,
         zoom: schemaInfo?.zoomLevel || 1,
       }}
+      minZoom={0.1}
+      maxZoom={4}
     >
-      <Background
-        color="#333"
-        variant={BackgroundVariant.Lines}
-        size={1}
-        gap={20}
-      />
+      <Controls />
+
+      <MiniMap />
+
+      <Background color="#333" variant={BackgroundVariant.Lines} gap={40} />
     </ReactFlow>
   );
 };

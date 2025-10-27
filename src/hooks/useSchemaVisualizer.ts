@@ -18,8 +18,11 @@ import { calculateOptimalHandlePositions } from "../utils/handlePositioning";
 import { Attribute } from "../SchemaVisualizer/SchemaVisualizer.types";
 import { generateAttributeId, generateModelId } from "../utils/uuid.utils";
 import { useWebSocketListener } from "./useWebSocketListener";
+import { getVietnamTime } from "../utils";
+import { useParams } from "react-router-dom";
 
 export const useSchemaVisualizer = () => {
+  const { diagramId } = useParams<{ diagramId: string }>();
   const {
     nodes,
     edges,
@@ -88,9 +91,11 @@ export const useSchemaVisualizer = () => {
   });
 
   // Drag handlers
-  const { onNodeDragStart, onNodeDrag, onNodeDragStop } = useDragHandlers({
-    sendNodePositionUpdate,
-  });
+  const { onNodeDragStart, onNodeDrag, onNodeDragStop, onNodeClick } =
+    useDragHandlers({
+      sendNodePositionUpdate,
+      setReactFlowNodes,
+    });
 
   // ReactFlow connection handler
   const onConnect = useCallback(
@@ -193,7 +198,7 @@ export const useSchemaVisualizer = () => {
               data: {
                 ...currentNode.data,
                 name: trimmedNewName,
-                lastNameUpdate: Date.now(),
+                nameUpdatedAt: getVietnamTime(),
               },
             };
           }
@@ -281,10 +286,6 @@ export const useSchemaVisualizer = () => {
     initializeData(stableCallbacks);
   }, [initializeData, stableCallbacks]);
 
-  const handleRefresh = useCallback(() => {
-    fetchSchemaData(stableCallbacks);
-  }, [fetchSchemaData, stableCallbacks]);
-
   // Initialize data on first mount
   useEffect(() => {
     if (!hasInitialized.current) {
@@ -364,6 +365,7 @@ export const useSchemaVisualizer = () => {
   // Keep currentNodesRef updated
   useEffect(() => {
     currentNodesRef.current = reactFlowNodes;
+    console.log("list node: ", reactFlowNodes);
   }, [reactFlowNodes]);
 
   useEffect(() => {
@@ -405,7 +407,7 @@ export const useSchemaVisualizer = () => {
   const edgesData = useMemo(() => {
     if (reactFlowNodes.length === 0) return [];
 
-    console.log("🔗 Calculating edges from fingerprint:", edgesFingerprint);
+    // console.log("🔗 Calculating edges from fingerprint:", edgesFingerprint);
 
     const nodeMap = new Map(reactFlowNodes.map((node) => [node.id, node]));
     const newEdges: Edge[] = [];
@@ -514,14 +516,14 @@ export const useSchemaVisualizer = () => {
 
   // ⭐ WebSocket handlers (cho việc nhận messages)
   const websocketHandlers = useWebSocketHandlers({
-    updateNodePosition,
-    updateFieldName,
-    updateFieldType,
-    addAttribute,
-    deleteAttribute,
-    addModel,
-    updateModelName,
-    deleteModel,
+    // updateNodePosition,
+    // updateFieldName,
+    // updateFieldType,
+    // addAttribute,
+    // deleteAttribute,
+    // addModel,
+    // updateModelName,
+    // deleteModel,
     setReactFlowNodes,
     setIsUpdatingFromWebSocket,
     stableCallbacks,
@@ -531,6 +533,7 @@ export const useSchemaVisualizer = () => {
   useWebSocketListener({
     handlers: websocketHandlers,
     enabled: true,
+    diagramId: diagramId,
   });
 
   return {
@@ -551,9 +554,9 @@ export const useSchemaVisualizer = () => {
     onNodeDragStart,
     onNodeDrag,
     onNodeDragStop,
+    onNodeClick,
 
     // Action handlers
-    handleRefresh,
     handleReset,
     handleInitialize,
     handleAddModel,

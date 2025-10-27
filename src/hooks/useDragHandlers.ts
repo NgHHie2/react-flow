@@ -1,6 +1,6 @@
-// src/hooks/useDragHandlers.ts - Improved drag handling logic
+// src/hooks/useDragHandlers.ts - Improved drag handling logic with z-index management
 import { useCallback, useRef, useEffect } from "react";
-import { Node } from "reactflow";
+import { Node, useReactFlow } from "reactflow";
 import { createNodePositionUpdate } from "../utils/schemaUtils";
 
 interface DragState {
@@ -13,16 +13,20 @@ interface DragState {
 
 interface UseDragHandlersProps {
   sendNodePositionUpdate: any;
+  setReactFlowNodes?: React.Dispatch<React.SetStateAction<Node[]>>;
 }
 
 export const useDragHandlers = ({
   sendNodePositionUpdate,
+  setReactFlowNodes,
 }: UseDragHandlersProps) => {
   const dragStateRef = useRef<Map<string, DragState>>(new Map());
   const dragTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pendingUpdatesRef = useRef<Map<string, { x: number; y: number }>>(
     new Map()
   );
+  const highestZIndexRef = useRef<number>(100); // Track highest z-index
+  const { getNodes } = useReactFlow();
 
   // Calculate distance between two points
   const calculateDistance = useCallback(
@@ -34,28 +38,82 @@ export const useDragHandlers = ({
     []
   );
 
-  // FIX 1: Improved drag start with better state tracking
-  const onNodeDragStart = useCallback((event: React.MouseEvent, node: Node) => {
-    console.log(
-      "🎯 Drag START for node:",
-      node.id,
-      "at position:",
-      node.position
-    );
+  // Update z-index for clicked node
+  const bringNodeToFront = useCallback(
+    (nodeId: string) => {
+      if (!setReactFlowNodes) return;
 
-    const dragState: DragState = {
-      isDragging: false,
-      startPosition: { ...node.position },
-      currentPosition: { ...node.position },
-      dragThreshold: 3, // Reduced threshold for better responsiveness
-      lastUpdateTime: Date.now(),
-    };
+      // Get current highest z-index from all nodes
+      const currentNodes = getNodes();
+      let maxZIndex = highestZIndexRef.current;
 
-    dragStateRef.current.set(node.id, dragState);
+      currentNodes.forEach((node) => {
+        const nodeZIndex = node.data?.zIndex || node.zIndex || 0;
+        if (nodeZIndex > maxZIndex) {
+          maxZIndex = nodeZIndex;
+        }
+      });
 
-    // Clear any pending updates for this node
-    pendingUpdatesRef.current.delete(node.id);
-  }, []);
+      // Set new highest z-index
+      const newZIndex = maxZIndex + 1;
+      highestZIndexRef.current = newZIndex;
+
+      console.log(
+        `🔝 Bringing node ${nodeId} to front with z-index: ${newZIndex}`
+      );
+
+      // Update the node's z-index
+      setReactFlowNodes((nodes) =>
+        nodes.map((node) => {
+          if (node.id === nodeId) {
+            return {
+              ...node,
+              zIndex: newZIndex,
+              data: {
+                ...node.data,
+                zIndex: newZIndex,
+              },
+              style: {
+                ...node.style,
+                zIndex: newZIndex,
+              },
+            };
+          }
+          return node;
+        })
+      );
+    },
+    [setReactFlowNodes, getNodes]
+  );
+
+  // FIX 1: Improved drag start with z-index management
+  const onNodeDragStart = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      console.log(
+        "🎯 Drag START for node:",
+        node.id,
+        "at position:",
+        node.position
+      );
+
+      // Bring clicked node to front immediately
+      bringNodeToFront(node.id);
+
+      const dragState: DragState = {
+        isDragging: false,
+        startPosition: { ...node.position },
+        currentPosition: { ...node.position },
+        dragThreshold: 3, // Reduced threshold for better responsiveness
+        lastUpdateTime: Date.now(),
+      };
+
+      dragStateRef.current.set(node.id, dragState);
+
+      // Clear any pending updates for this node
+      pendingUpdatesRef.current.delete(node.id);
+    },
+    [bringNodeToFront]
+  );
 
   // FIX 2: Throttled drag handling to prevent excessive updates
   const onNodeDrag = useCallback(
@@ -152,6 +210,15 @@ export const useDragHandlers = ({
     [calculateDistance, sendNodePositionUpdate]
   );
 
+  // Alternative: Handle node click separately for z-index (if you want click without drag)
+  const onNodeClick = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      console.log(`🖱️ Node clicked: ${node.id}`);
+      bringNodeToFront(node.id);
+    },
+    [bringNodeToFront]
+  );
+
   // FIX 4: Better cleanup handling
   useEffect(() => {
     return () => {
@@ -186,6 +253,7 @@ export const useDragHandlers = ({
     onNodeDragStart,
     onNodeDrag,
     onNodeDragStop,
+    onNodeClick, // Export click handler for optional use
     flushPendingUpdates, // Export for potential use in cleanup
   };
 };

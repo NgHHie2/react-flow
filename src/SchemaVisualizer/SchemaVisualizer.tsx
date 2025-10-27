@@ -33,7 +33,6 @@ export const SchemaVisualizer = () => {
     // Action handlers
     handleDeleteModel,
     handleAddModel,
-    handleRefresh,
     handleReset,
     handleInitialize,
   } = useSchemaVisualizer();
@@ -56,7 +55,6 @@ export const SchemaVisualizer = () => {
       <ControlPanel
         isConnected={isConnected}
         loading={loading}
-        onRefresh={handleRefresh}
         onReset={handleReset}
       />
 

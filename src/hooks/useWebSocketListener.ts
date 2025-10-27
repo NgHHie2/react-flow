@@ -7,11 +7,13 @@ import { useWebSocketContext } from "../contexts/WebSocketContext";
 interface UseWebSocketListenerProps {
   handlers: MessageHandler;
   enabled?: boolean;
+  diagramId: string;
 }
 
 export const useWebSocketListener = ({
   handlers,
   enabled = true,
+  diagramId,
 }: UseWebSocketListenerProps) => {
   const { isConnected, setIsConnected, setSessionId } = useWebSocketContext();
 
@@ -69,16 +71,27 @@ export const useWebSocketListener = ({
     };
 
     // Connect with stable handlers
-    websocketService.connect(enhancedHandlers);
+    websocketService.connect(enhancedHandlers, diagramId);
 
     // Cleanup
     return () => {
       console.log("🧹 Cleaning up WebSocket listener");
       websocketService.disconnect();
     };
-  }, [enabled, setIsConnected, setSessionId]); // ✅ Remove 'handlers' from deps
+  }, [enabled, diagramId, setIsConnected, setSessionId]); // ✅ Remove 'handlers' from deps
+
+  useEffect(() => {
+    if (isConnected && diagramId) {
+      const currentDiagramId = websocketService.getDiagramId();
+      if (currentDiagramId && currentDiagramId !== diagramId) {
+        console.log(`🔄 Switching to diagram ${diagramId}`);
+        websocketService.switchDiagram(diagramId);
+      }
+    }
+  }, [diagramId, isConnected]);
 
   return {
     isConnected,
+    currentDiagramId: diagramId,
   };
 };

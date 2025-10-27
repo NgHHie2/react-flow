@@ -39,18 +39,18 @@ export const ModelHeader: React.FC<ModelHeaderProps> = ({
   return (
     <Box
       p={3}
-      textAlign="center"
+      // textAlign="center"
       borderRadius="8px 8px 0 0"
       bg="#3d5787"
       height={`${HEADER_HEIGHT}px`}
       display="flex"
       alignItems="center"
-      justifyContent="center"
-      position="relative"
+      // justifyContent="center"
+      // position="relative"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <Flex alignItems="center" gap={2} width="100%">
+      <Flex gap={2} width="100%">
         {/* Editable Model Name */}
         <Box flex={1}>
           <EditableField

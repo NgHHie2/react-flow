@@ -2,7 +2,7 @@
 export interface BaseUpdate {
   sessionId?: string;
   messageId?: string;
-  clientTimestamp?: number;
+  clientTimestamp?: string;
 }
 
 export interface NodePositionUpdate extends BaseUpdate {

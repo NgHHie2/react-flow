@@ -9,6 +9,33 @@ export const WS_CONFIG: WebSocketConfig = {
   heartbeatInterval: 4000,
 } as const;
 
+/**
+ * ⭐ NEW: Dynamic destinations based on diagramId
+ * Usage: createDestinations(123) → /app/diagram/123/updateNodePosition
+ */
+export const createDestinations = (diagramId: number | string) => ({
+  updateNodePosition: `/app/diagram/${diagramId}/updateNodePosition`,
+  updateAttributeName: `/app/diagram/${diagramId}/updateAttributeName`,
+  updateAttributeType: `/app/diagram/${diagramId}/updateAttributeType`,
+  toggleKeyType: `/app/diagram/${diagramId}/toggleKeyType`,
+  addAttribute: `/app/diagram/${diagramId}/addAttribute`,
+  deleteAttribute: `/app/diagram/${diagramId}/deleteAttribute`,
+  connectForeignKey: `/app/diagram/${diagramId}/connectForeignKey`,
+  disconnectForeignKey: `/app/diagram/${diagramId}/disconnectForeignKey`,
+  addModel: `/app/diagram/${diagramId}/addModel`,
+  updateModelName: `/app/diagram/${diagramId}/updateModelName`,
+  deleteModel: `/app/diagram/${diagramId}/deleteModel`,
+});
+
+/**
+ * ⭐ NEW: Dynamic topics based on diagramId
+ * Usage: createTopics(123) → /topic/diagram/123
+ */
+export const createTopics = (diagramId: number | string) => ({
+  schemaUpdates: `/topic/diagram/${diagramId}`,
+  userErrors: `/queue/errors`,
+});
+
 // Message Types
 export const MESSAGE_TYPES = {
   NODE_POSITION_UPDATE: "NODE_POSITION_UPDATE",
@@ -43,7 +70,7 @@ export const DESTINATIONS = {
 // Subscription Topics
 export const TOPICS = {
   schemaUpdates: "/topic/schema-updates",
-  userErrors: "/user/queue/errors",
+  userErrors: "/queue/errors",
 } as const;
 
 // Filtering Configuration

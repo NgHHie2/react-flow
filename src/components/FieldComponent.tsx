@@ -1,7 +1,7 @@
 // src/components/FieldComponent.tsx
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Box, Flex, IconButton, Tooltip, Button } from "@chakra-ui/react";
-import { Handle, Position, Node as ReactFlowNode } from "reactflow";
+import { Handle, Position } from "reactflow";
 import { EditableField } from "./EditableField";
 import { ForeignKeyTargetSelector } from "./ForeignKeyTargetSelector";
 import { Attribute, Model } from "../SchemaVisualizer/SchemaVisualizer.types";
@@ -47,7 +47,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
 
   // ✅ Click outside handler
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: PointerEvent) => {
       if (
         dropdownRef.current &&
         !dropdownRef.current.contains(event.target as Node)
@@ -58,17 +58,17 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
     };
 
     if (showFKSelector) {
-      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("pointerdown", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("pointerdown", handleClickOutside);
     };
   }, [showFKSelector]);
 
   const isPK = attribute.isPrimaryKey;
   const isFK = attribute.isForeignKey;
-  const hasConnection = !!attribute.connection;
+  // const hasConnection = !!attribute.connection;
 
   const getCurrentKeyType = (): KeyType => {
     if (attribute.isPrimaryKey) return "PRIMARY";
@@ -164,25 +164,19 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
     const baseStyle = {
       width: "8px",
       height: "8px",
-      border: "2px solid white",
+      border: "1px solid",
       borderRadius: "50%",
       opacity: 0.6,
     };
 
-    const activeStyle = {
-      ...baseStyle,
-      opacity: hasConnection ? 1 : isFK && !isPK ? 0.8 : 0.6,
-      backgroundColor: hasConnection
-        ? "#1770d6ff"
-        : isFK && !isPK
-        ? "#87CEEB"
-        : "#6B7280",
-    };
-
     const pkStyle = {
       ...baseStyle,
-      opacity: isPK ? 1 : 0.6,
-      backgroundColor: isPK ? "#FFD700" : "#6B7280",
+      opacity: 1,
+      backgroundColor: isPK
+        ? "#FFD700" // vàng nếu là Primary Key
+        : isFK
+        ? "#1770d6ff" // xanh nếu là Foreign Key
+        : "#FFFFFFFF", // mặc định
     };
 
     const baseHandleId = `${model.id}-${attribute.id}`;
@@ -195,7 +189,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
           position={Position.Left}
           type="source"
           style={{
-            ...activeStyle,
+            ...pkStyle,
             position: "absolute",
             left: "-5px",
             top: "50%",
@@ -223,7 +217,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
           position={Position.Right}
           type="source"
           style={{
-            ...activeStyle,
+            ...pkStyle,
             position: "absolute",
             right: "-5px",
             top: "50%",
@@ -272,7 +266,7 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
           {getFieldIcon() && (
             <Tooltip label={getTooltipText()} fontSize="xs">
               <Box
-                color={getFieldColor()}
+                // color={getFieldColor()}
                 fontSize="12px"
                 cursor="pointer"
                 onClick={handleIconClick}
@@ -348,40 +342,13 @@ export const FieldComponent: React.FC<FieldComponentProps> = ({
                 variant="ghost"
                 colorScheme="red"
                 onClick={handleDeleteClick}
-                minWidth="16px"
-                height="16px"
+                minWidth="14px"
+                height="14px"
                 p={0}
                 _hover={{ bg: "red.300" }}
               />
             </Tooltip>
           </Box>
-        )}
-
-        {/* Connection indicator */}
-        {hasConnection && (
-          <Box
-            position="absolute"
-            right="12px"
-            top="2px"
-            width="6px"
-            height="6px"
-            bg={attribute.connection?.strokeColor || "#4A90E2"}
-            borderRadius="50%"
-            title={`Connected to ${attribute.connection?.targetModelId}.${attribute.connection?.targetAttributeId}`}
-          />
-        )}
-
-        {/* Key Type Indicator Bar */}
-        {(isPK || isFK) && (
-          <Box
-            position="absolute"
-            left="0"
-            top="0"
-            width="3px"
-            height="100%"
-            bg={isPK ? "#FFD700" : "#87CEEB"}
-            borderRadius="0 2px 2px 0"
-          />
         )}
       </Flex>
 

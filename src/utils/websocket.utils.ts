@@ -151,13 +151,18 @@ export const routeMessage = (
 export const createTrackedMessage = (type: string, data: any): any => {
   const messageId = messageTracker.generateMessageId(type, data);
   messageTracker.markAsSent(messageId);
-
+  const now = new Date();
   return {
     ...data,
     messageId,
-    clientTimestamp: Date.now(),
+    clientTimestamp: now.toISOString(),
   };
 };
+
+export function getVietnamTime(): string {
+  const now = new Date();
+  return now.toISOString();
+}
 
 /**
  * Create debug logger

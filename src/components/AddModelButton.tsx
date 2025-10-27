@@ -13,7 +13,7 @@ export const AddModelButton: React.FC<AddModelButtonProps> = ({
   isConnected,
 }) => {
   return (
-    <Box position="absolute" bottom={4} left={4} zIndex={1000}>
+    <Box position="absolute" top={4} left={4} zIndex={1000}>
       <Tooltip
         label={isConnected ? "Add new table" : "Connect to add tables"}
         fontSize="sm"

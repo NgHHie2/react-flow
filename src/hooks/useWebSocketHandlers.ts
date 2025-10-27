@@ -1,29 +1,30 @@
 // src/hooks/useWebSocketHandlers.ts - Fixed WebSocket message handlers
 import { useRef, useEffect, useCallback } from "react";
+import { getVietnamTime } from "../utils";
 
 interface UseWebSocketHandlersProps {
-  updateNodePosition: any;
-  updateFieldName: any;
-  updateFieldType: any;
-  addAttribute: any;
-  deleteAttribute: any;
+  // updateNodePosition: any;
+  // updateFieldName: any;
+  // updateFieldType: any;
+  // addAttribute: any;
+  // deleteAttribute: any;
   setReactFlowNodes: any;
-  addModel: any;
-  updateModelName: any;
-  deleteModel: any;
+  // addModel: any;
+  // updateModelName: any;
+  // deleteModel: any;
   setIsUpdatingFromWebSocket?: React.Dispatch<React.SetStateAction<boolean>>;
   stableCallbacks?: any;
 }
 
 export const useWebSocketHandlers = ({
-  updateNodePosition,
-  updateFieldName,
-  updateFieldType,
-  addAttribute,
-  deleteAttribute,
-  addModel,
-  updateModelName,
-  deleteModel,
+  // updateNodePosition,
+  // updateFieldName,
+  // updateFieldType,
+  // addAttribute,
+  // deleteAttribute,
+  // addModel,
+  // updateModelName,
+  // deleteModel,
   setReactFlowNodes,
   setIsUpdatingFromWebSocket,
   stableCallbacks,
@@ -39,22 +40,34 @@ export const useWebSocketHandlers = ({
       }
 
       // Update both data store and ReactFlow nodes
-      updateNodePosition(data.nodeId, data.positionX, data.positionY);
+      // updateNodePosition(data.nodeId, data.positionX, data.positionY);
 
       // CRITICAL: Also update ReactFlow nodes directly
       setReactFlowNodes((currentNodes: any) => {
-        return currentNodes.map((node: any) =>
-          node.id === data.nodeId
-            ? {
-                ...node,
-                position: { x: data.positionX, y: data.positionY },
-                data: {
-                  ...node.data,
-                  lastUpdate: Date.now(), // Force re-render
-                },
-              }
-            : node
-        );
+        return currentNodes.map((node: any) => {
+          if (node.id !== data.nodeId) return node;
+
+          const oldTime = new Date(node.data?.positionUpdatedAt || 0);
+          const newTime = new Date(data.clientTimestamp + "Z");
+
+          // Nếu node chưa có time, hoặc clientTimestamp mới hơn
+          if (
+            data.clientTimestamp &&
+            (!oldTime.getTime() || oldTime < newTime)
+          ) {
+            return {
+              ...node,
+              position: { x: data.positionX, y: data.positionY },
+              data: {
+                ...node.data,
+                positionUpdatedAt: data.clientTimestamp,
+              },
+            };
+          }
+
+          // Ngược lại, giữ nguyên
+          return node;
+        });
       });
 
       // Reset flag after update
@@ -62,7 +75,7 @@ export const useWebSocketHandlers = ({
         setTimeout(() => setIsUpdatingFromWebSocket(false), 100);
       }
     },
-    [updateNodePosition, setReactFlowNodes, setIsUpdatingFromWebSocket]
+    [setReactFlowNodes, setIsUpdatingFromWebSocket]
   );
 
   const handleFieldNameUpdate = useCallback(
@@ -80,10 +93,18 @@ export const useWebSocketHandlers = ({
 
           const updatedAttributes = node.data.attributes.map((attr: any) => {
             if (attr.id === data.attributeId) {
-              return {
-                ...attr,
-                name: data.attributeName,
-              };
+              const oldTime = new Date(attr.nameUpdatedAt || 0);
+              const newTime = new Date(data.clientTimestamp + "Z");
+              if (
+                data.clientTimestamp &&
+                (!oldTime.getTime() || oldTime < newTime)
+              ) {
+                return {
+                  ...attr,
+                  name: data.attributeName,
+                  nameUpdatedAt: data.clientTimestamp,
+                };
+              }
             }
             return attr;
           });
@@ -93,7 +114,6 @@ export const useWebSocketHandlers = ({
             data: {
               ...node.data,
               attributes: updatedAttributes,
-              lastAttributeUpdate: Date.now(),
             },
           };
         });
@@ -117,17 +137,25 @@ export const useWebSocketHandlers = ({
 
           const updatedAttributes = node.data.attributes.map((attr: any) => {
             if (attr.id === data.attributeId) {
-              return {
-                ...attr,
-                dataType: data.attributeType,
-                ...(data.length !== undefined && { length: data.length }),
-                ...(data.precisionValue !== undefined && {
-                  precisionValue: data.precisionValue,
-                }),
-                ...(data.scaleValue !== undefined && {
-                  scaleValue: data.scaleValue,
-                }),
-              };
+              const oldTime = new Date(attr.typeUpdatedAt || 0);
+              const newTime = new Date(data.clientTimestamp + "Z");
+              if (
+                data.clientTimestamp &&
+                (!oldTime.getTime() || oldTime < newTime)
+              ) {
+                return {
+                  ...attr,
+                  dataType: data.attributeType,
+                  ...(data.length !== undefined && { length: data.length }),
+                  ...(data.precisionValue !== undefined && {
+                    precisionValue: data.precisionValue,
+                  }),
+                  ...(data.scaleValue !== undefined && {
+                    scaleValue: data.scaleValue,
+                  }),
+                  typeUpdatedAt: data.clientTimestamp,
+                };
+              }
             }
             return attr;
           });
@@ -137,7 +165,6 @@ export const useWebSocketHandlers = ({
             data: {
               ...node.data,
               attributes: updatedAttributes,
-              lastAttributeUpdate: Date.now(),
             },
           };
         });
@@ -157,31 +184,40 @@ export const useWebSocketHandlers = ({
 
           const updatedAttributes = node.data.attributes.map((attr: any) => {
             if (attr.id !== data.attributeId) return attr;
-
-            // ✅ Apply the exact keyType from server
-            switch (data.keyType) {
-              case "PRIMARY":
-                return {
-                  ...attr,
-                  isPrimaryKey: true,
-                  isForeignKey: false,
-                  connection: undefined,
-                };
-              case "FOREIGN":
-                return {
-                  ...attr,
-                  isPrimaryKey: false,
-                  isForeignKey: true,
-                };
-              case "NORMAL":
-                return {
-                  ...attr,
-                  isPrimaryKey: false,
-                  isForeignKey: false,
-                  connection: undefined,
-                };
-              default:
-                return attr;
+            const oldTime = new Date(attr.keyTypeUpdatedAt || 0);
+            const newTime = new Date(data.clientTimestamp + "Z");
+            if (
+              data.clientTimestamp &&
+              (!oldTime.getTime() || oldTime < newTime)
+            ) {
+              // ✅ Apply the exact keyType from server
+              switch (data.keyType) {
+                case "PRIMARY":
+                  return {
+                    ...attr,
+                    isPrimaryKey: true,
+                    isForeignKey: false,
+                    connection: undefined,
+                    keyTypeUpdatedAt: data.clientTimestamp,
+                  };
+                case "FOREIGN":
+                  return {
+                    ...attr,
+                    isPrimaryKey: false,
+                    isForeignKey: true,
+                    keyTypeUpdatedAt: data.clientTimestamp,
+                  };
+                case "NORMAL":
+                  return {
+                    ...attr,
+                    isPrimaryKey: false,
+                    isForeignKey: false,
+                    connection: undefined,
+                    keyTypeUpdatedAt: data.clientTimestamp,
+                  };
+                default:
+                  return attr;
+              }
             }
           });
 
@@ -190,7 +226,6 @@ export const useWebSocketHandlers = ({
             data: {
               ...node.data,
               attributes: updatedAttributes,
-              lastKeyUpdate: Date.now(),
             },
           };
         });
@@ -315,15 +350,21 @@ export const useWebSocketHandlers = ({
           // Tìm node cần đổi tên theo oldModelName
           if (node.id === data.modelId) {
             console.log("✅ Found node to rename:", node.id);
-
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                name: data.newModelName, // Đổi tên trong data
-                lastNameUpdate: Date.now(), // Force re-render
-              },
-            };
+            const oldTime = new Date(node.data.nameUpdatedAt || 0);
+            const newTime = new Date(data.clientTimestamp + "Z");
+            if (
+              data.clientTimestamp &&
+              (!oldTime.getTime() || oldTime < newTime)
+            ) {
+              return {
+                ...node,
+                data: {
+                  ...node.data,
+                  name: data.newModelName, // Đổi tên trong data
+                  nameUpdatedAt: data.clientTimestamp, // Force re-render
+                },
+              };
+            }
           }
 
           return {

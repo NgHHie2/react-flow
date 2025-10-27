@@ -6,8 +6,12 @@ import { schemaApiService } from "../services/schemaApiService";
 import { convertToReactFlowData } from "../utils/schemaUtils";
 import { SchemaData } from "../SchemaVisualizer/SchemaVisualizer.types";
 import { generateAttributeId } from "../utils/uuid.utils";
+import { getVietnamTime } from "../utils";
+import { useParams } from "react-router-dom";
 
 export const useSchemaData = () => {
+  const { diagramId } = useParams<{ diagramId: string }>();
+  console.log(diagramId);
   const [reactFlowNodes, setReactFlowNodes, onNodesChange] = useNodesState([]);
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -21,7 +25,7 @@ export const useSchemaData = () => {
       setLoading(true);
       setError(null);
 
-      const data = await schemaApiService.getSchemaData();
+      const data = await schemaApiService.getSchemaData(diagramId);
       setSchemaInfo(data);
 
       // ✅ THAY ĐỔI: Pass callbacks object instead of single onFieldUpdateCallback
@@ -75,7 +79,7 @@ export const useSchemaData = () => {
                 position: { x, y },
                 data: {
                   ...node.data,
-                  lastUpdate: Date.now(),
+                  positionUpdatedAt: getVietnamTime(),
                 },
               }
             : node
@@ -105,7 +109,11 @@ export const useSchemaData = () => {
           const updatedAttributes = node.data.attributes.map((attr: any) => {
             if (attr.id === attributeId) {
               console.log("tui nè");
-              return { ...attr, name: attributeName };
+              return {
+                ...attr,
+                name: attributeName,
+                nameUpdatedAt: getVietnamTime(),
+              };
             }
             return attr;
           });
@@ -115,7 +123,6 @@ export const useSchemaData = () => {
             data: {
               ...node.data,
               attributes: updatedAttributes,
-              lastFieldNameUpdate: Date.now(), // ✅ Force re-render
             },
           };
         });
@@ -141,7 +148,11 @@ export const useSchemaData = () => {
           const updatedAttributes = node.data.attributes.map((attr: any) => {
             if (attr.id === attributeId) {
               console.log("tui nè");
-              return { ...attr, dataType: attributeType };
+              return {
+                ...attr,
+                dataType: attributeType,
+                typeUpdatedAt: getVietnamTime(),
+              };
             }
             return attr;
           });
@@ -151,7 +162,6 @@ export const useSchemaData = () => {
             data: {
               ...node.data,
               attributes: updatedAttributes,
-              lastFieldTypeUpdate: Date.now(), // ✅ Force re-render
             },
           };
         });
@@ -279,7 +289,7 @@ export const useSchemaData = () => {
                 ...node.data,
                 name: newName,
                 nodeId: newName,
-                lastNameUpdate: Date.now(), // Force re-render
+                nameUpdatedAt: getVietnamTime(), // Force re-render
               },
             };
           }

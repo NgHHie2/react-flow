@@ -41,25 +41,30 @@ export const EditableField: React.FC<EditableFieldProps> = ({
 
   useEffect(() => {
     if (actualIsEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
+      const input = inputRef.current;
+      input.focus();
+
+      // 👇 Đặt con trỏ ở cuối thay vì bôi xanh text
+      const length = input.value.length;
+      requestAnimationFrame(() => {
+        input.setSelectionRange(length, length);
+      });
     }
   }, [actualIsEditing]);
 
   // Measure text box width when not editing
   useEffect(() => {
     if (!actualIsEditing && textBoxRef.current) {
-      const rect = textBoxRef.current.getBoundingClientRect();
-      setTextBoxWidth(rect.width);
+      const width = textBoxRef.current.offsetWidth; // 👈 sửa ở đây
+      setTextBoxWidth(width);
     }
   }, [actualIsEditing, value]);
 
   const handleDoubleClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent node drag
-    // Measure current width before switching to edit mode
+    e.stopPropagation();
     if (textBoxRef.current) {
-      const rect = textBoxRef.current.getBoundingClientRect();
-      setTextBoxWidth(rect.width);
+      const width = textBoxRef.current.offsetWidth; // 👈 sửa ở đây luôn
+      setTextBoxWidth(width);
     }
     setActualIsEditing(true);
   };
