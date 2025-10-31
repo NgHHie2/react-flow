@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { websocketService } from "../services/websocketService";
 import { MessageHandler } from "../types/websocket.types";
 import { useWebSocketContext } from "../contexts/WebSocketContext";
+import { useNavigate } from "react-router-dom";
 
 interface UseWebSocketListenerProps {
   handlers: MessageHandler;
@@ -16,8 +17,7 @@ export const useWebSocketListener = ({
   diagramId,
 }: UseWebSocketListenerProps) => {
   const { isConnected, setIsConnected, setSessionId } = useWebSocketContext();
-
-  // ✅ FIX: Store handlers in ref to prevent dependency changes
+  const navigate = useNavigate();
   const handlersRef = useRef<MessageHandler>(handlers);
 
   // Update ref when handlers change, but don't trigger effect
@@ -47,6 +47,26 @@ export const useWebSocketListener = ({
       },
       onError: (error: string) => {
         console.error("💥 WebSocket error:", error);
+
+        // ⭐ Handle diagram not found error
+        if (
+          error.includes("DIAGRAM_NOT_FOUND") ||
+          error.includes("does not exist") ||
+          error.includes("Không tìm thấy diagram")
+        ) {
+          console.error(
+            `❌ Diagram ${diagramId} not found, redirecting to home...`
+          );
+
+          // Show error toast/alert
+          alert(
+            `Diagram ${diagramId} không tồn tại hoặc bạn không có quyền truy cập`
+          );
+
+          // Redirect to diagram 1 or home
+          navigate("/", { replace: true });
+        }
+
         handlersRef.current.onError?.(error);
       },
       // ✅ Pass through other handlers using ref

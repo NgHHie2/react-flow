@@ -217,7 +217,6 @@ class WebSocketService {
   }
 
   private subscribeToUpdates(): void {
-    // ⭐ Check diagramId before subscribing
     if (!this.client || !this.state.connected || !this.state.diagramId) {
       console.warn("⚠️ Cannot subscribe: client not ready or no diagramId");
       return;
@@ -226,17 +225,41 @@ class WebSocketService {
     try {
       const TOPICS = createTopics(this.state.diagramId);
 
-      // ⭐ Subscribe to DIAGRAM-SPECIFIC topic
+      // ⭐ 1. Subscribe to VALIDATION ERRORS first
+      console.log("📡 Subscribing to validation errors...");
+      this.client.subscribe("/topic/validation-errors", (message) => {
+        try {
+          const error = JSON.parse(message.body);
+          console.log("🚨 Received validation error:", error);
+
+          // ⭐ Check if error is for current session
+          if (error.sessionId === this.state.sessionId) {
+            console.error(
+              `❌ Diagram ${error.diagramId} validation failed: ${error.message}`
+            );
+            this.handlers.onError?.(error.message);
+          }
+        } catch (e) {
+          console.error("Error parsing validation error:", e);
+        }
+      });
+
+      // ⭐ 2. Subscribe to diagram-specific updates
+      console.log(
+        `📡 Subscribing to diagram ${this.state.diagramId} updates...`
+      );
       this.client.subscribe(TOPICS.schemaUpdates, (message) => {
         this.handleMessage(message.body);
       });
 
-      // Subscribe to personal error queue
+      // ⭐ 3. Subscribe to personal error queue (for other errors)
       this.client.subscribe(TOPICS.userErrors, (message) => {
         this.handleErrorMessage(message.body);
       });
 
-      console.log(`📡 Subscribed to diagram ${this.state.diagramId} updates`);
+      console.log(
+        `✅ Successfully subscribed to all topics for diagram ${this.state.diagramId}`
+      );
     } catch (error) {
       console.error("❌ Error subscribing to updates:", error);
       this.handlers.onError?.("Failed to subscribe to updates");

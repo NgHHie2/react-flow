@@ -317,14 +317,19 @@ export const useSchemaVisualizer = () => {
   }, [nodes]);
 
   const lastFingerprintRef = useRef<string>("");
+  const prevNodesLengthRef = useRef<number>(-1);
 
   useEffect(() => {
     if (nodes.length === 0) {
-      setReactFlowNodes([]);
-      lastFingerprintRef.current = "";
+      if (prevNodesLengthRef.current !== 0) {
+        setReactFlowNodes([]);
+        lastFingerprintRef.current = "";
+        prevNodesLengthRef.current = 0;
+      }
       return;
     }
 
+    prevNodesLengthRef.current = nodes.length;
     const currentFingerprint = JSON.stringify(nodesFingerprint);
 
     // Only sync if fingerprint actually changed
@@ -360,7 +365,7 @@ export const useSchemaVisualizer = () => {
 
       return newNodes;
     });
-  }, [nodesFingerprint, stableCallbacks, nodes, setReactFlowNodes]);
+  }, [nodesFingerprint, stableCallbacks, nodes]);
 
   // Keep currentNodesRef updated
   useEffect(() => {
